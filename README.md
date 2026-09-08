@@ -1,47 +1,47 @@
 # 🌌 Orbit — Intelligent Task Orchestrator for ADHD Minds
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-In%20Active%20Development-blue?style=for-the-badge" alt="Status" />
+  <img src="https://img.shields.io/badge/Status-Scaffolding%20%26%20PRD%20Baseline-blue?style=for-the-badge" alt="Status" />
   <img src="https://img.shields.io/badge/Architecture-Clean%20Architecture-brightgreen?style=for-the-badge" alt="Architecture" />
   <img src="https://img.shields.io/badge/Mobile-React%20Native%20%7C%20Expo-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React Native" />
   <img src="https://img.shields.io/badge/Backend-Spring%20Boot%203-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot" />
   <img src="https://img.shields.io/badge/Database-PostgreSQL%2015-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/AI-Gemini%20%2F%20Spring%20AI-orange?style=for-the-badge&logo=google&logoColor=white" alt="AI" />
+  <img src="https://img.shields.io/badge/AI-Gemini%201.5%20Flash-orange?style=for-the-badge&logo=google&logoColor=white" alt="AI" />
 </p>
 
 ---
 
-## 📌 Giới Thiệu Dự Án
+## 📌 Project Overview
 
-**Orbit** là hệ thống điều phối và quản trị công việc thông minh, được nghiên cứu và thiết kế chuyên sâu dành cho người mắc hội chứng **ADHD (Rối loạn giảm chú ý tăng động)** và những người thường xuyên đối mặt với trở ngại nhận thức (*Executive Dysfunction, Time Blindness, Analysis Paralysis*).
+**Orbit** is an intelligent task coordination and management system scientifically designed for individuals diagnosed with **ADHD (Attention Deficit Hyperactivity Disorder)** and those who experience severe executive dysfunction (*Time Blindness, Activation Paralysis, Analysis Overload*).
 
-Không giống như các công cụ quản lý dự án nặng nề (Trello, Jira), **Orbit** tối giản hóa trải nghiệm, ứng dụng Trí tuệ Nhân tạo (AI) để:
-* ⚡ **Ghi nhận công việc tức thì (Instant Capture)** dưới 5 giây.
-* 🧩 **Tự động chia nhỏ việc lớn (AI Task Decomposition)** thành các vi hành động (micro-steps) dưới 20 phút.
-* 🧠 **Sắp xếp thứ tự ưu tiên theo mức năng lượng não bộ (Energy-based Prioritization)** thay vì chỉ dựa vào deadline.
-* 🎯 **Triệt tiêu đa nhiệm với Chế độ Focus & Giới hạn WIP** (chỉ làm 1 việc duy nhất tại 1 thời điểm).
-* 🛡️ **Bảo vệ động lực với Gamification nhẹ nhàng** (bảo lưu chuỗi ngày, không phán xét, không cảnh báo tiêu cực).
-
----
-
-## 📚 Bộ Tài Liệu Đặc Tả Chi Tiết (Project Documentation)
-
-Toàn bộ tài liệu phân tích nghiệp vụ, yêu cầu phần mềm và thiết kế hệ thống được tổ chức khoa học trong thư mục [`docs/`](docs/):
-
-1. 📄 [**01. Project Brief**](docs/01_PROJECT_BRIEF.md): Bản tóm tắt dự án, định vị giá trị cốt lõi, phạm vi MVP và ranh giới loại trừ.
-2. 📋 [**02. Product Requirements Document (PRD)**](docs/02_PRD.md): Tài liệu yêu cầu sản phẩm đầy đủ (Product Discovery, User Personas, Empathy Map, Functional & Non-Functional Requirements, Hợp đồng dữ liệu AI).
-3. 🎯 [**03. User Stories & Acceptance Criteria**](docs/03_USER_STORIES_AC.md): Danh mục User Stories ưu tiên theo MoSCoW và tiêu chí nghiệm thu chuẩn **Gherkin (Given - When - Then)**.
-4. 🏗️ [**04. System Architecture & Design**](docs/04_SYSTEM_ARCHITECTURE.md): Thiết kế kiến trúc 3 tầng, sơ đồ ERD Cơ sở dữ liệu, đặc tả RESTful API và chiến lược Offline-First.
+Unlike conventional project management tools (Jira, Trello) that impose multi-step manual data entry and visual clutter, **Orbit** reduces cognitive friction through:
+* ⚡ **Instant Capture:** Log emerging tasks in under 5 seconds with zero required dropdowns.
+* 🧩 **AI Task Decomposition:** Decompose overwhelming tasks into bite-sized micro-steps (< 20 minutes) with human-in-the-loop preview.
+* 🧠 **Energy-Adaptive Prioritization:** Prioritize tasks matching the user's active cognitive energy (☕ Low / ⚡ Medium / 🔥 High).
+* 🎯 **WIP Limits & Focus Mode:** Strict cap on in-progress tasks (max 1) and a dedicated distraction-free Pomodoro view.
+* 🛡️ **Gentle Gamification:** Encouraging XP rewards and a *Streak Freeze* mechanism to protect motivation across off-days.
 
 ---
 
-## 🏛️ Kiến Trúc Hệ Thống (High-Level Overview)
+## 📚 Product Documentation (`docs/`)
+
+All software engineering and product management artifacts are maintained in the [`docs/`](docs/) directory:
+
+1. 📄 [**01. Project Brief**](docs/01_PROJECT_BRIEF.md): Core problem hypothesis, primary persona, MVP scope, explicit exclusions, and the decision log (D1–D13).
+2. 📋 [**02. Product Requirements Document (PRD)**](docs/02_PRD.md): Comprehensive PRD covering ADHD psychological background, user personas, empathy mapping, customer journey, functional/non-functional requirements, and AI data contracts.
+3. 🎯 [**03. User Stories & Acceptance Criteria**](docs/03_USER_STORIES_AC.md): MoSCoW-prioritized user stories accompanied by observable **Gherkin (`Given - When - Then`)** acceptance criteria.
+4. 🏗️ [**04. System Architecture & Design**](docs/04_SYSTEM_ARCHITECTURE.md): 3-tier layered system design, Mermaid Database ERD, RESTful API endpoint specifications, and offline-first resilience strategy.
+
+---
+
+## 🏛️ System Architecture
 
 ```mermaid
 graph LR
     subgraph Mobile ["📱 Mobile Client (React Native + Expo)"]
-        A[UI Views & Kanban] <--> B[Zustand & TanStack Query]
-        B <--> C[Offline Storage]
+        A[UI Screens & Kanban] <--> B[Zustand & TanStack Query]
+        B <--> C[Local Cache / SQLite]
     end
 
     subgraph Server ["☕ Backend (Spring Boot 3.x)"]
@@ -50,9 +50,9 @@ graph LR
         E --> G[Spring AI Engine]
     end
 
-    subgraph Cloud ["☁️ Data & External Services"]
+    subgraph Cloud ["☁️ Data & AI Services"]
         H[(PostgreSQL 15)]
-        I[Google Gemini / LLM API]
+        I[Google Gemini 1.5 Flash]
     end
 
     Mobile -- "HTTPS / JWT" --> D
@@ -62,63 +62,58 @@ graph LR
 
 ---
 
-## 📂 Cấu Trúc Thư Mục Dự Án (Repository Layout)
+## 📂 Repository Structure
 
 ```text
 orbit_project/
-├── .gitignore                      # Cấu hình bỏ qua file rác (Node, Java, macOS, IDEs)
-├── README.md                       # Tài liệu tổng quan và hướng dẫn dự án
-├── docs/                           # Thư mục tài liệu đặc tả sản phẩm & kiến trúc
-│   ├── 01_PROJECT_BRIEF.md         # Bản tóm tắt dự án định hướng ban đầu
-│   ├── 02_PRD.md                   # PRD chi tiết chuẩn môn học (Chương 3)
-│   ├── 03_USER_STORIES_AC.md       # Bảng User Stories & Tiêu chí nghiệm thu Gherkin
-│   └── 04_SYSTEM_ARCHITECTURE.md   # Thiết kế kiến trúc hệ thống, ERD & API Contract
-├── mobile/                         # Khung mã nguồn ứng dụng di động (React Native)
+├── .gitignore                      # Git exclusion rules (Node, Java, macOS, IDEs)
+├── README.md                       # Project overview and development guidelines
+├── docs/                           # Software Engineering & Product Documentation
+│   ├── 01_PROJECT_BRIEF.md         # Initial project scope and decision log
+│   ├── 02_PRD.md                   # Full Product Requirements Document (Chapter 3 aligned)
+│   ├── 03_USER_STORIES_AC.md       # MoSCoW User Stories and Gherkin Acceptance Criteria
+│   └── 04_SYSTEM_ARCHITECTURE.md   # Architectural design, ERD, and API contracts
+├── mobile/                         # Mobile Client Scaffolding (React Native Expo)
 │   ├── src/
-│   │   ├── components/             # Reusable UI Components (Cards, Buttons, Modals)
-│   │   ├── screens/                # Màn hình chính (BoardScreen, FocusScreen, QuickCapture)
-│   │   ├── navigation/             # Cấu hình điều hướng React Navigation
-│   │   ├── services/               # API Client gọi về Spring Boot
-│   │   └── types/                  # TypeScript Data Models
-│   ├── app.json                    # Cấu hình Expo App Manifest
-│   ├── package.json                # Danh sách thư viện phụ thuộc Mobile
-│   └── tsconfig.json               # Cấu hình TypeScript cho Mobile
-└── backend/                        # Khung mã nguồn máy chủ (Spring Boot 3.x)
+│   │   ├── components/             # Reusable UI widgets
+│   │   ├── screens/                # Application screens (BoardScreen, FocusScreen)
+│   │   ├── services/               # Axios REST API Client
+│   │   └── types/                  # TypeScript domain models
+│   ├── app.json                    # Expo project configuration
+│   ├── package.json                # Mobile dependencies
+│   └── tsconfig.json               # Standalone TypeScript compiler options
+└── backend/                        # Backend API Scaffolding (Spring Boot 3.x)
     ├── src/
     │   ├── main/
     │   │   ├── java/com/orbit/
-    │   │   │   ├── config/         # Cấu hình Security, CORS, Spring AI
-    │   │   │   ├── controller/     # REST API Controllers
-    │   │   │   ├── dto/            # Data Transfer Objects (Request/Response)
-    │   │   │   ├── entity/         # JPA Entities (User, Board, Task, Subtask)
-    │   │   │   ├── repository/     # Spring Data JPA Repositories
-    │   │   │   ├── service/        # Business Logic & AI Orchestrator
+    │   │   │   ├── controller/     # REST API Controllers (HealthController)
+    │   │   │   ├── entity/         # JPA Entities (User, Task, Subtask)
     │   │   │   └── OrbitApplication.java
     │   │   └── resources/
-    │   │       └── application.yml # Cấu hình môi trường, Database, AI API Keys
-    └── pom.xml                     # Cấu hình quản lý thư viện Maven (Java 17/21)
+    │   │       └── application.yml # Datasource, JWT, and AI configurations
+    └── pom.xml                     # Maven build and dependency management
 ```
 
 ---
 
-## 🛠️ Ngăn Xếp Công Nghệ (Tech Stack)
+## 🛠️ Technology Stack
 
-| Thành Phần | Công Nghệ Lựa Chọn | Lý Do & Vai Trò |
+| Component | Technology | Rationale |
 | :--- | :--- | :--- |
-| **Mobile Client** | **React Native (Expo SDK) + TypeScript** | Xây dựng ứng dụng đa nền tảng (iOS & Android) tiện lợi, cho phép người ADHD ghi việc nhanh mọi lúc mọi nơi. |
-| **Mobile State** | **Zustand + TanStack Query** | Quản lý trạng thái nhẹ nhàng, hỗ trợ bộ đệm offline và cập nhật giao diện lạc quan (Optimistic Updates). |
-| **Backend API** | **Spring Boot 3.x (Java 17/21)** | Nền tảng doanh nghiệp vững chắc, tuân thủ kiến trúc phân tầng chuẩn mực, bảo mật cao. |
-| **Bảo Mật** | **Spring Security + JWT + OAuth2** | Xác thực phiên đăng nhập an toàn không trạng thái (Stateless), hỗ trợ đăng nhập 1 chạm qua Google. |
-| **Cơ Sở Dữ Liệu** | **PostgreSQL 15+** | Hệ quản trị cơ sở dữ liệu quan hệ tin cậy, mạnh mẽ, toàn vẹn dữ liệu cao. |
-| **Trí Tuệ Nhân Tạo**| **Spring AI + Google Gemini / OpenAI** | Phân rã tác vụ thông minh (Task Decomposition) và xếp thứ tự ưu tiên theo trạng thái nhận thức. |
+| **Mobile Client** | **React Native (Expo SDK) + TypeScript** | Unified iOS & Android codebase enabling instant task capture on mobile devices anytime. |
+| **Mobile State** | **Zustand + TanStack Query** | Lightweight state management with optimistic UI updates and robust offline caching. |
+| **Backend API** | **Spring Boot 3.x (Java 17/21)** | Enterprise-grade reliability, strict layered separation, and comprehensive security standards. |
+| **Security** | **Spring Security + JWT + OAuth2** | Stateless authentication with one-tap Google Identity sign-in. |
+| **Database** | **PostgreSQL 15+** | Robust ACID relational persistence ensuring data integrity and fast indexed queries. |
+| **AI Engine** | **Spring AI + Google Gemini 1.5 Flash** | Sub-3s structured JSON task decomposition with human-in-the-loop validation. |
 
 ---
 
-## 🚦 Quy Chuẩn Commit Git (Conventional Commits)
+## 🚦 Git Commit Guidelines (Conventional Commits)
 
-Dự án tuân thủ nghiêm ngặt quy ước đặt tên commit:
-* `docs:` Bổ sung hoặc cập nhật tài liệu (`PRD`, `Architecture`, `README`, v.v.).
-* `feat:` Phát triển tính năng mới cho ứng dụng.
-* `fix:` Sửa lỗi hệ thống hoặc giao diện.
-* `refactor:` Tối ưu hóa cấu trúc code mà không thay đổi hành vi nghiệp vụ.
-* `chore:` Cấu hình công cụ, phụ thuộc hoặc thiết lập môi trường.
+This repository strictly follows the Conventional Commits specification:
+* `docs:` Documentation additions or modifications (`PRD`, `Architecture`, `README`).
+* `feat:` Introduction of a new functional capability.
+* `fix:` Bug fixes or UI remediation.
+* `refactor:` Code refactoring without behavioral alterations.
+* `chore:` Build scripts, dependency updates, and environment configuration.

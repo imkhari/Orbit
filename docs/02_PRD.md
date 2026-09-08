@@ -1,262 +1,243 @@
-# Tài Liệu Yêu Cầu Sản Phẩm (PRD) — ORBIT
+# Product Requirements Document (PRD) — ORBIT
 
-| Thông Tin Tài Liệu | Giá Trị |
+| Document Metadata | Value |
 | :--- | :--- |
-| **Dự Án** | **Orbit** – Hệ Thống Điều Phối Công Việc Thông Minh Cho Người ADHD |
-| **Phiên Bản** | 1.0.0 (MVP Release Specification) |
-| **Tác Giả** | Đội ngũ phát triển dự án Orbit |
-| **Trạng Thái** | Sẵn sàng triển khai (Ready for Development) |
-| **Nền Tảng** | Mobile (React Native / Expo) & Backend API (Spring Boot 3) |
+| **Project Name** | **Orbit** – Intelligent Task Orchestrator for ADHD Minds |
+| **Document Version** | 1.0.0 (MVP Specification) |
+| **Author** | Orbit Engineering & Product Team |
+| **Status** | Accepted — Ready for Engineering Baseline |
+| **Target Platforms** | Mobile Client (React Native / Expo) & Backend Server (Spring Boot 3) |
 
 ---
 
-## 1. Khám Phá Sản Phẩm (Product Discovery)
+## 1. Product Discovery
 
-### 1.1. Bối Cảnh Tâm Lý Học Người Dùng ADHD
-Hội chứng **ADHD (Attention Deficit Hyperactivity Disorder)** không đơn thuần là "mất tập trung", mà là sự khiếm khuyết trong mạng lưới dẫn truyền Dopamine và chức năng điều hành của não bộ (*Executive Dysfunction*). Người mắc ADHD phải đối mặt với 4 rào cản nhận thức lớn:
+### 1.1. Psychological Background & ADHD Neurobiology
+**Attention Deficit Hyperactivity Disorder (ADHD)** is not merely a lack of attention; it is a neurological condition characterized by dysregulation of dopamine transmission and executive function in the prefrontal cortex (*Executive Dysfunction*). Individuals with ADHD face four primary cognitive barriers in daily life:
 
-1. **Rào Cản Khởi Động (Activation Barrier / ADHD Paralysis):** Khi một công việc có độ phức tạp cao hoặc chưa rõ cách làm, não bộ người ADHD kích hoạt phản ứng né tránh (Fight-or-Flight / Procrastination) vì cảm thấy ngột ngạt.
-2. **Hội Chứng Mù Thời Gian (Time Blindness):** Chỉ nhận thức được hai mốc thời gian: *"Bây Giờ" (Now)* và *"Không Phải Bây Giờ" (Not Now)*. Điều này dẫn đến việc đánh giá sai lệch thời gian hoàn thành công việc và thường xuyên sát hạn mới bắt đầu làm.
-3. **Quá Tải Nhận Thức Thị Giác (Visual Sensory Overload):** Khi mở một ứng dụng có quá nhiều bảng biểu, nhiều tag màu sắc lộn xộn (như Jira/Trello), họ sẽ kiệt sức trước khi kịp chọn ra công việc cần làm.
-4. **Nhạy Cảm Với Thất Bại (Rejection Sensitive Dysphoria - RSD):** Cảm giác tội lỗi cực độ khi nhìn thấy danh sách công việc trễ hạn màu đỏ (*Overdue tasks*), từ đó có xu hướng xóa app hoặc bỏ mặc hệ thống.
+1. **Activation Barrier (ADHD Paralysis):** When a task appears vague, complex, or unquantifiable, the brain triggers an avoidance response (*fight-or-flight / procrastination*) due to severe cognitive dread.
+2. **Time Blindness:** Impaired perception of future time horizons; tasks are cognitively categorized as either *"Now"* or *"Not Now"*, leading to inaccurate task duration estimates and chronic last-minute panic.
+3. **Visual Sensory Overload:** Traditional project management platforms (Jira, Trello) present an abundance of labels, custom dropdowns, and metrics, exhausting executive functioning before a task is even selected.
+4. **Rejection Sensitive Dysphoria (RSD):** Intense emotional distress triggered by failure or perceived shortcoming (e.g., staring at a dashboard filled with bright red "Overdue" badges), frequently resulting in complete tool abandonment.
 
 ---
 
-### 1.2. Chân Dung Người Dùng Điển Hình (User Personas)
+### 1.2. Target User Personas
 
-#### Persona 1: Nguyễn Nhật Minh — Sinh viên Công nghệ Thông tin (Inattentive ADHD)
-* **Độ tuổi:** 21 | **Địa điểm:** TP. Hồ Chí Minh
-* **Đặc điểm:** Thường xuyên chìm đắm trong suy nghĩ riêng (*Hyperfocus* khi có hứng, nhưng tê liệt hoàn toàn khi phải làm bài tập lớn có hạn chót 3 tuần).
-* **Pain Points:** 
-  * Biết bài tập lớn rất quan trọng nhưng không biết bắt đầu từ đâu.
-  * Càng cố chia nhỏ bằng cách viết giấy thì càng thấy nhiều đầu việc và hoảng loạn.
-  * Sử dụng Notion được 2 ngày thì chán vì tốn quá nhiều thời gian tùy biến giao diện.
-* **Mục tiêu mong đợi ở Orbit:** Một nút bấm duy nhất biến bài tập lớn thành 3 bước nhỏ dưới 15 phút, giao diện sạch sẽ, chỉ nhìn thấy việc cần làm ngay lúc này.
-
-#### Persona 2: Trần Thùy Linh — Freelance Content Creator (Combined ADHD)
-* **Độ tuổi:** 26 | **Địa điểm:** Hà Nội
-* **Đặc điểm:** Trực giác sáng tạo cao, giàu năng lượng vào ban đêm nhưng ban ngày năng lượng bấp bênh.
+#### Persona 1: Nhat Minh — Computer Science Student (Inattentive ADHD)
+* **Age:** 21 | **Location:** Ho Chi Minh City
+* **Profile:** Excels in creative problem-solving and hyperfocuses on novel subjects, but experiences complete paralysis when assigned semester-long projects with distant deadlines.
 * **Pain Points:**
-  * Nhận nhiều hợp đồng cùng lúc, dễ quên deadline các bài viết phụ.
-  * Khi mệt mỏi (*Low Energy*), cố gắng làm việc nặng dẫn đến kiệt sức (*Burnout*).
-* **Mục tiêu mong đợi ở Orbit:** Hệ thống tự động gợi ý: *"Nếu bạn đang mệt, hãy làm việc này trước (chỉ mất 10 phút và không tốn nhiều năng lượng não)"*.
+  * Understands the importance of coursework but cannot decide where to start.
+  * Attempting to break tasks down manually on paper results in cluttered lists that amplify anxiety.
+  * Abandoned Notion after three days due to the excessive overhead of workspace configuration.
+* **Core Need from Orbit:** A single-action button that transforms a broad assignment into 3 concrete micro-steps (< 15 mins each), presented in a calm, focused UI.
+
+#### Persona 2: Thuy Linh — Freelance Content Strategist (Combined ADHD)
+* **Age:** 26 | **Location:** Hanoi
+* **Profile:** Manages multiple concurrent client contracts; energy levels fluctuate dramatically between high-burst evening focus and daytime cognitive fatigue.
+* **Pain Points:**
+  * Misses minor client sub-deliverables due to fragmented tracking across messaging apps.
+  * Attempting analytical, heavy tasks during cognitive fatigue causes burnout and guilt.
+* **Core Need from Orbit:** Dynamic energy filtering: *"When you are exhausted, Orbit highlights low-energy micro-tasks (under 10 mins) so momentum is maintained without burnout."*
 
 ---
 
-### 1.3. Bản Đồ Thấu Cảm (Empathy Map)
+### 1.3. Empathy Map
 
 ```text
                [ THINKS & FEELS ]
-    - "Mình muốn hoàn thành mọi thứ nhưng đầu óc cứ trống rỗng"
-    - "Sao người khác làm việc có kế hoạch dễ dàng thế còn mình thì không?"
-    - Cảm giác tội lỗi khi deadline trôi qua mà chưa động vào task.
+    - "I genuinely want to start, but my mind feels completely locked."
+    - "Why is structured planning effortless for others but exhausting for me?"
+    - Lingering guilt when deadlines slip past without initial action.
 
  [ HEARS ]                                      [ SEES ]
- - Lời phàn nàn từ bạn bè, gia đình.           - Hàng tá tab trình duyệt mở dở.
- - "Chỉ cần tập trung vào là làm được mà!"    - To-do list đỏ rực việc quá hạn.
- - Mẹo năng suất chung chung trên mạng.        - App quản lý việc quá nhiều nút.
+ - Frequent reminders from peers and managers.   - 50+ unfinished browser tabs.
+ - "Just sit down and concentrate!"             - A screen filled with red overdue tasks.
+ - Generic productivity advice that fails.      - Cluttered apps with overwhelming settings.
 
                  [ SAYS & DOES ]
-    - Nói: "Mai mình sẽ bắt đầu làm nghiêm túc!"
-    - Tải nhiều app quản lý việc rồi bỏ sau 3 ngày.
-    - Làm việc lặt vặt để né tránh việc lớn (Productive Procrastination).
+    - States: "Tomorrow morning I will tackle everything at once."
+    - Downloads productivity apps, uses them for 48 hours, then uninstalls.
+    - Engages in productive procrastination (cleaning desk instead of coding).
 
  [ PAINS ]                                      [ GAINS ]
- - Tê liệt nhận thức trước việc lớn.          - Cảm giác giải tỏa khi bước đầu tiên dễ dàng.
- - Xấu hổ vì bỏ dở kế hoạch.                  - Giao diện yên bình, không phán xét.
- - Quá tải vì giao diện phức tạp.              - Tự tin từng bước hoàn thành công việc.
+ - Intimidating activation barriers.           - Immediate relief from small, obvious first steps.
+ - Shame from breaking streaks.                - A non-judgmental, serene workspace.
+ - Visual clutter and tool fatigue.            - Confidence rebuilt through continuous micro-wins.
 ```
 
 ---
 
-### 1.4. Hành Trình Trải Nghiệm Khách Hàng (Customer Journey Map)
+### 1.4. Customer Journey Comparison
 
-| Giai Đoạn | Hiện Tại (Công Cụ Truyền Thống) | Giải Pháp Của Orbit |
+| Workflow Stage | Baseline (Conventional Tools) | Orbit Solution |
 | :--- | :--- | :--- |
-| **1. Ghi nhận việc** | Phải chọn Project, chọn Sprint, gán Tag, nhập Estimate phức tạp → Bỏ cuộc, không ghi nữa. | **Ghi nhận 1 chạm (Quick Capture):** Nhập 1 dòng tiêu đề rồi lưu ngay, không bắt buộc điền thuộc tính. |
-| **2. Tiếp cận việc lớn** | Đối mặt với task khổng lồ → Tê liệt (*ADHD Paralysis*), lướt mạng xã hội né tránh. | **AI Task Decomposition:** Bấm "Chia nhỏ với AI", AI bẻ nhỏ thành 3-4 micro-task (<20 phút). |
-| **3. Chọn việc để làm** | Nhìn vào ma trận 30 việc trên Trello → Quá tải nhận thức, không biết chọn gì. | **AI Prioritize by Energy:** Lọc công việc phù hợp với mức năng lượng hiện tại (Cao / Vừa / Thấp). |
-| **4. Thực hiện** | Mở bảng Kanban thấy 10 việc đang làm dở → Mất tập trung nhảy việc. | **Focus Mode + WIP Limit:** Chỉ hiển thị 1 thẻ việc duy nhất trên màn hình cùng Pomodoro nhẹ nhàng. |
-| **5. Kết thúc & Duy trì** | Trễ hạn bị bôi đỏ cảnh báo → Xấu hổ, bỏ app. | **Gentle Gamification:** Động viên bằng micro-reward, cho phép bảo vệ chuỗi (*Streak Freeze*). |
+| **1. Capture** | Mandatory sprint selection, issue type, estimates, story points $\to$ Task discarded unrecorded. | **Instant Capture:** Single input field; type and press Enter. Processed in < 5 seconds. |
+| **2. Decomposing** | Manual breakdown into epics and subtasks $\to$ Analysis paralysis and avoidance. | **AI Task Decomposition:** One tap transforms large tasks into 3–5 actionable micro-steps (< 20 mins). |
+| **3. Prioritizing** | Sorting through 40+ unordered tickets $\to$ Cognitive overload. | **Energy-Adaptive Prioritization:** Filters tasks compatible with current energy state (☕ Low / ⚡ Med / 🔥 High). |
+| **4. Execution** | 8 concurrent tickets in progress $\to$ Distracted context-switching. | **Focus Mode & WIP Limits:** Doing lane capped at 1 task; dedicated Pomodoro countdown screen. |
+| **5. Retention** | Loud red overdue warnings $\to$ Triggers RSD; user uninstalls app. | **Gentle Gamification:** Encouraging micro-rewards; streak freeze preserves motivation across off-days. |
 
 ---
 
-## 2. Mục Tiêu Sản Phẩm & Chỉ Số Đo Lường (Product Goals & OKRs)
+## 2. Product Goals & Success Metrics (OKRs)
 
-### 2.1. Tuyên Ngôn Giá Trị (Value Proposition)
-> **"Orbit không bắt người ADHD phải thay đổi bộ não để thích nghi với công cụ, mà Orbit là công cụ thích nghi với cơ chế hoạt động của não bộ người ADHD."**
+### 2.1. Value Proposition
+> **"Orbit does not force neurodivergent individuals to rewire their brains for a rigid tool; Orbit adapts its workflow to the natural rhythm of the ADHD mind."**
 
-### 2.2. Mục Tiêu & Kết Quả Then Chốt (OKRs - MVP Phase)
-* **Mục tiêu 1 (Khởi động dễ dàng):** Giảm thiểu tối đa thời gian từ lúc nảy sinh ý nghĩ đến khi bắt tay vào làm việc.
-  * *KR 1.1:* Thời gian trung bình để người dùng tạo một task mới đạt dưới 5 giây.
-  * *KR 1.2:* Hơn 70% người dùng sử dụng tính năng chia nhỏ công việc bằng AI cho các task có thời lượng > 2 giờ.
-* **Mục tiêu 2 (Hoàn thành bền vững):** Tăng tỷ lệ hoàn thành công việc mà không gây kiệt sức tâm lý.
-  * *KR 2.1:* Tỷ lệ hoàn thành các micro-task (công việc con) đạt trên 65%.
-  * *KR 2.2:* Tỷ lệ duy trì sử dụng ứng dụng sau 14 ngày (Day-14 Retention) đạt tối thiểu 40%.
+### 2.2. Objectives and Key Results (MVP Release)
+* **Objective 1 (Frictionless Initiation):** Minimize the time elapsed between task conception and physical execution.
+  * *KR 1.1:* Mean time to create a new ticket via Instant Capture reaches $\le$ 5 seconds.
+  * *KR 1.2:* Over 70% of tasks with estimated duration $\ge$ 2 hours utilize the AI Decomposition engine.
+* **Objective 2 (Sustainable Completion):** Boost completion rates while actively preventing cognitive burnout.
+  * *KR 2.1:* Micro-subtask completion rate exceeds 65%.
+  * *KR 2.2:* Day-14 user retention reaches at least 40%.
 
 ---
 
-## 3. Phân Tích Yêu Cầu (Requirements Analysis)
+## 3. Requirements Analysis
 
-### 3.1. Yêu Cầu Chức Năng (Functional Requirements - FR)
+### 3.1. Functional Requirements (FR)
 
-| Mã FR | Tên Chức Năng | Mô Tả Nghiệp Vụ |
+| ID | Feature Area | Requirement Description |
 | :--- | :--- | :--- |
-| **FR-01** | **Xác Thực & Quản Lý Hồ Sơ** | Đăng ký/đăng nhập bằng Email/Password và Google OAuth2. Thiết lập hồ sơ nhịp sinh học năng lượng cơ bản. |
-| **FR-02** | **Quản Lý Bảng (Board Management)** | Tạo, sửa, lưu trữ Board theo từng ngữ cảnh cuộc sống (ví dụ: Học tập, Công việc, Cá nhân). Mặc định tối đa 3-5 boards hoạt động. |
-| **FR-03** | **Quy Trình Kanban Tinh Gọn** | Bảng Kanban với 4 cột cố định: `Backlog`, `Todo`, `Doing`, `Done`. Hỗ trợ kéo thả hoặc nút chuyển trạng thái một chạm. |
-| **FR-04** | **Quản Lý Thẻ Việc (Ticket Management)** | Tạo task nhanh với tiêu đề, hạn chót (Deadline), và mức năng lượng ước tính (Thấp: ☕, Vừa: ⚡, Cao: 🔥). |
-| **FR-05** | **AI Task Decomposition (Cốt Lõi)** | Gửi yêu cầu phân rã công việc đến AI. AI trả về danh sách các bước hành động cụ thể kèm thời gian dự tính. Người dùng duyệt trước khi tạo. |
-| **FR-06** | **AI Smart Prioritization (Cốt Lõi)** | Tính toán và xếp thứ tự ưu tiên các thẻ việc trong cột Todo dựa trên: Deadline + Độ quan trọng + Mức năng lượng hiện tại của người dùng. |
-| **FR-07** | **Chế Độ Tập Trung (Focus Mode)** | Ẩn toàn bộ giao diện bảng, toàn màn hình chỉ hiện 1 thẻ việc đang làm kèm đồng hồ đếm ngược Pomodoro tối giản (25 phút). |
-| **FR-08** | **Gamification Nhẹ Nhàng (Gentle Rewards)** | Cộng điểm kinh nghiệm (XP) khi hoàn thành task, hiển thị lời chúc khích lệ tích cực, bảo lưu chuỗi ngày (*Streak Freeze*) nếu có ngày nghỉ. |
+| **FR-01** | **Authentication** | Users can register and log in via Email/Password or one-tap Google OAuth2. Unauthenticated access redirects immediately to Login. |
+| **FR-02** | **Board Management** | Users can create, edit, archive, and delete personal boards (default limit: 3–5 active boards to prevent sprawl). |
+| **FR-03** | **Kanban Workflow** | Each board enforces 4 peer lanes in fixed order: `Backlog`, `Todo`, `Doing`, and `Done`. Direct movement supported via drag-and-drop or modal status selector. |
+| **FR-04** | **Ticket Management** | Users can create tickets with a title (required), optional description, deadline, and energy requirement level (☕ Low, ⚡ Med, 🔥 High). |
+| **FR-05** | **AI Task Breakdown** | On-demand task decomposition generates 3–5 subtasks under 20 minutes each. Users inspect and approve suggestions in a preview sheet before persistence. |
+| **FR-06** | **Energy Prioritization**| System calculates an adaptive priority score based on proximity to deadline and alignment with the user's active energy level. |
+| **FR-07** | **WIP Limit & Focus** | The `Doing` lane enforces a strict Work-In-Progress limit (max 1 task). Focus Mode isolates the single active ticket with a distraction-free Pomodoro timer. |
+| **FR-08** | **Gentle Gamification** | Awards experience points (XP) on task completion; tracks daily streaks with a non-punitive *Streak Freeze* buffer to mitigate emotional drop-off. |
 
 ---
 
-### 3.2. Yêu Cầu Phi Chức Năng (Non-Functional Requirements - NFR)
+### 3.2. Non-Functional Requirements (NFR)
 
-| Mã NFR | Tiêu Chí | Đặc Tả Kỹ Thuật |
+| ID | Category | Specification |
 | :--- | :--- | :--- |
-| **NFR-01** | **Hiệu Năng & Độ Trễ (Performance)** | Thời gian gọi API AI trả về kết quả preview chia nhỏ task ≤ 3.0 giây. Thao tác tạo task offline-ready và phản hồi giao diện ≤ 100ms. |
-| **NFR-02** | **Thiết Kế Thân Thiện Nhận Thức (Cognitive Ergonomics)** | Đạt chuẩn tương phản **WCAG 2.1 AA**. Tuyệt đối không dùng màu đỏ gay gắt cho cảnh báo quá hạn (dùng tone cam/nâu ấm áp). Không phát âm thanh báo động chói tai. |
-| **NFR-03** | **Bảo Mật & Riêng Tư (Security & Privacy)** | Toàn bộ mật khẩu băm bằng BCrypt (Spring Security). Sử dụng JWT ngắn hạn (Access Token 15 phút) kết hợp Refresh Token an toàn. Không gửi dữ liệu cá nhân nhạy cảm lên AI. |
-| **NFR-04** | **Độ Tin Cậy & Hoạt Động Offline (Reliability)** | Lưu trữ bộ đệm trên thiết bị di động (Local Storage / SQLite / WatermelonDB). Khi mất kết nối mạng, người dùng vẫn xem và tick hoàn thành task được, tự động đồng bộ khi có mạng. |
-| **NFR-05** | **Khả Năng Mở Rộng (Scalability)** | Backend Spring Boot thiết kế theo mô hình Stateless RESTful Service, hỗ trợ mở rộng ngang (Horizontal Scaling) và kết nối Connection Pool (HikariCP) tối ưu. |
+| **NFR-01** | **Performance** | AI task decomposition latency $\le$ 3.0 seconds. Local UI state updates and task creation render in $\le$ 100ms. |
+| **NFR-02** | **Cognitive Ergonomics** | Complies with **WCAG 2.1 AA** contrast standards. Replaces harsh red alerts with gentle amber/neutral tones. Strictly avoids jarring auditory alarms. |
+| **NFR-03** | **Security & Privacy** | Passwords hashed using BCrypt (Spring Security). Stateless JWT architecture (15-minute access token, 7-day refresh token). No sensitive PII sent to AI LLM endpoints. |
+| **NFR-04** | **Offline Resilience** | Client-side caching enables ticket creation and completion without an active network connection. Queued actions synchronize automatically upon reconnection. |
+| **NFR-05** | **Failure Recovery** | A failed ticket mutation restores prior persisted state, preserves input drafts, and provides an explicit retry trigger without data loss. |
 
 ---
 
-## 4. User Stories & Tiêu Chí Chấp Nhận (Acceptance Criteria)
+## 4. User Stories & Acceptance Criteria
 
-Tất cả các tiêu chí nghiệm thu được viết theo chuẩn **Gherkin (Given - When - Then)**:
-
-### 4.1. US-01: Ghi nhận công việc tức thời (Instant Capture)
-* **Story:** *Là một người dùng ADHD hay quên việc,* tôi muốn *có thể mở app và gõ ngay tiêu đề công việc chỉ với 1 thao tác,* để *tôi lưu lại ý tưởng trước khi nó biến mất khỏi đầu mà không bị phân tâm bởi form nhập liệu dài dòng.*
-* **Acceptance Criteria:**
+### 4.1. US-01: Instant Capture
+* **Story:** *As a user experiencing sudden thoughts,* I want *to capture a task title in under 5 seconds with a single tap,* so that *ideas are secured before memory decays.*
+* **Acceptance Criteria (Gherkin):**
   ```gherkin
-  Given Người dùng đang ở màn hình chính hoặc bất kỳ tab nào trong app
-  When Người dùng nhấn vào thanh nhập nhanh ở đáy màn hình và gõ "Nộp báo cáo môn AI" rồi bấm Enter
-  Then Hệ thống tạo ngay một thẻ việc mới trong cột "Backlog" của Board mặc định
-  And Hiển thị thông báo nhẹ (Toast) xác nhận thành công trong vòng 100ms
-  And Không bắt buộc người dùng phải nhập deadline hay mô tả
+  Given The user is on any screen within the application
+  When The user taps the bottom quick-capture input, types "Submit AI Milestone Report", and presses Enter
+  Then A new ticket is immediately instantiated at the top of the "Backlog" column
+  And A subtle haptic confirmation confirms creation within 100ms
+  And The input field clears automatically for subsequent entries
+  ```
+
+### 4.2. US-02: AI Task Decomposition
+* **Story:** *As a user paralyzed by an overwhelming project,* I want *AI to decompose the ticket into 3–5 micro-steps under 20 minutes,* so that *I can overcome activation inertia.*
+* **Acceptance Criteria (Gherkin):**
+  ```gherkin
+  Given An existing ticket titled "Write Literature Review on Neural Networks"
+  When The user presses "✨ AI Breakdown"
+  Then A preview modal renders within 3 seconds displaying 3 to 5 actionable subtasks
+  And Each subtask includes an estimated duration (<= 20 mins) and an energy tag
+  When The user edits one step, unchecks another, and taps "Confirm & Apply"
+  Then The approved subtasks are appended to the ticket's checklist in the database
+  And If the user cancels or dismisses the modal, no data is modified
+  ```
+
+### 4.3. US-03: Work-In-Progress (WIP) Enforcement
+* **Story:** *As a user prone to chronic multitasking,* I want *the Doing column to cap concurrent work to 1 item,* so that *I finish tasks sequentially.*
+* **Acceptance Criteria (Gherkin):**
+  ```gherkin
+  Given The "Doing" column currently holds 1 active ticket
+  When The user attempts to drag a second ticket from "Todo" into "Doing"
+  Then The system rejects the transition and returns the ticket to "Todo"
+  And Displays an encouraging notification: "Your mind operates best on one task at a time. Complete or pause your current work first!"
   ```
 
 ---
 
-### 4.2. US-02: Chia nhỏ việc lớn bằng AI (AI Task Decomposition)
-* **Story:** *Là một người dùng đang hoảng loạn trước một deadline lớn,* tôi muốn *AI tự động phân tích và bẻ nhỏ công việc thành 3-5 bước dưới 20 phút,* để *tôi có thể dễ dàng bắt tay vào làm bước đầu tiên mà không cảm thấy sợ hãi.*
-* **Acceptance Criteria:**
-  ```gherkin
-  Given Một thẻ việc có tiêu đề "Làm slide thuyết trình đồ án tốt nghiệp" nằm trong cột Backlog hoặc Todo
-  When Người dùng nhấn nút "Bẻ nhỏ với AI" (AI Breakdown)
-  Then Hệ thống gửi yêu cầu đến Backend Spring Boot và gọi AI Engine
-  And Hệ thống hiển thị Modal xem trước chứa danh sách 3 đến 5 bước gợi ý (ví dụ: "Bước 1: Viết dàn ý 5 slide chính - 15 phút")
-  And Mỗi bước có ô chọn (checkbox) và ô chỉnh sửa nội dung văn bản
-  When Người dùng bỏ chọn 1 bước, chỉnh sửa tên 1 bước khác và bấm "Xác nhận & Thêm vào thẻ"
-  Then Thẻ việc được bổ sung danh sách Checklist công việc con tương ứng
-  And Tuyệt đối không tự động tạo công việc nếu người dùng bấm "Hủy bỏ"
-  ```
+## 5. Technical Feature Specifications & AI Contracts
 
----
-
-### 4.3. US-03: Sắp xếp theo mức năng lượng não bộ (Energy-based Prioritization)
-* **Story:** *Là một người dùng đang trong trạng thái kiệt sức (Low Energy),* tôi muốn *hệ thống gợi ý các việc nhẹ nhàng, tốn ít năng lượng trước,* để *tôi vẫn duy trì được tiến độ mà không bị kiệt sức (burnout).*
-* **Acceptance Criteria:**
-  ```gherkin
-  Given Người dùng mở danh sách công việc cần làm hôm nay
-  When Người dùng chọn mức năng lượng hiện tại là "Năng lượng thấp (☕ Low)"
-  Then Hệ thống tự động đẩy các công việc có nhãn "Năng lượng thấp" (thời lượng ngắn, việc thủ tục/soát lỗi) lên đầu danh sách
-  And Các công việc đòi hỏi tư duy phân tích phức tạp ("Năng lượng cao") được ẩn vào mục "Làm sau khi hồi phục"
-  ```
-
----
-
-### 4.4. US-04: Giới hạn việc đang làm & Chế độ Tập trung (WIP Limit & Focus Mode)
-* **Story:** *Là một người hay bị xao nhãng và nhảy việc giữa chừng,* tôi muốn *ứng dụng giới hạn chỉ cho phép tối đa 1 việc trong cột Doing,* để *tôi tập trung hoàn thành dứt điểm từng việc một.*
-* **Acceptance Criteria:**
-  ```gherkin
-  Given Cột "Doing" đã có sẵn 1 thẻ việc đang được thực hiện
-  When Người dùng cố gắng kéo thêm 1 thẻ việc thứ hai từ cột "Todo" sang cột "Doing"
-  Then Hệ thống chặn hành động di chuyển và rung phản hồi nhẹ (Haptic Feedback)
-  And Hiển thị thông báo dịu dàng: "Bộ não của bạn làm việc tốt nhất khi xử lý từng việc một. Hãy hoàn thành hoặc đưa việc hiện tại về Todo trước nhé!"
-  ```
-
----
-
-## 5. Đặc Tả Tính Năng Kỹ Thuật (Feature Specifications)
-
-### 5.1. Luồng Tương Tác AI Task Breakdown (Human-in-the-Loop Flow)
+### 5.1. AI Interaction Sequence (Human-in-the-Loop)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Người dùng Mobile
+    actor User as Mobile Client User
     participant RN as React Native App
     participant Spring as Spring Boot Backend
-    participant AI as Gemini / OpenAI LLM
+    participant AI as Gemini 1.5 Flash API
     participant DB as PostgreSQL Database
 
-    User->>RN: Bấm "Bẻ nhỏ với AI" trên Thẻ việc
+    User->>RN: Taps "✨ AI Breakdown" on Ticket
     RN->>Spring: POST /api/v1/tasks/{taskId}/ai-decompose
-    Note over Spring: Chuẩn bị Prompt & Context (Title, Energy, Deadline)
-    Spring->>AI: Gửi System Prompt + Input parameters (JSON Mode)
-    AI-->>Spring: Trả về JSON Schema (Array of subtasks)
-    Spring-->>RN: 200 OK (Danh sách subtasks đề xuất)
-    RN->>User: Hiển thị Modal Xem Trước (Preview & Edit Sheet)
-    User->>RN: Chỉnh sửa/Bỏ chọn các bước -> Bấm "Chấp nhận"
-    RN->>Spring: POST /api/v1/tasks/{taskId}/subtasks (Bulk create)
-    Spring->>DB: Lưu Subtasks vào Cơ sở dữ liệu
-    DB-->>Spring: Lưu thành công
-    Spring-->>RN: 201 Created (Cập nhật trạng thái Task)
-    RN->>User: Cập nhật giao diện Checklist của Task
+    Note over Spring: Prepares contextual prompt (Title, Description, Energy)
+    Spring->>AI: Sends Prompt with JSON Schema constraints
+    AI-->>Spring: Returns Structured JSON Subtasks
+    Spring-->>RN: 200 OK (Array of proposed subtasks)
+    RN->>User: Displays Preview & Edit Bottom Sheet
+    User->>RN: Edits/Deselcts steps -> Taps "Apply"
+    RN->>Spring: POST /api/v1/tasks/{taskId}/subtasks/bulk
+    Spring->>DB: Persists approved subtasks
+    DB-->>Spring: Success confirmation
+    Spring-->>RN: 201 Created
+    RN->>User: Renders updated interactive checklist
 ```
 
 ---
 
-### 5.2. Hợp Đồng Dữ Liệu AI (AI Engine Data Contract)
+### 5.2. AI Engine Data Contract
 
-#### Input Prompt Template (Spring AI / Backend Service):
+#### System Prompt Template (Spring Boot Service):
 ```text
-Bạn là chuyên gia tâm lý học hành vi và hỗ trợ nhận thức cho người có hội chứng ADHD.
-Nhiệm vụ của bạn là bẻ nhỏ một nhiệm vụ lớn thành 3 đến 5 hành động vi mô (micro-steps).
-Quy tắc bắt buộc:
-1. Mỗi bước phải bắt đầu bằng một động từ hành động cụ thể, rõ ràng (ví dụ: "Mở file...", "Viết 3 câu...", "Tìm kiếm...").
-2. Thời lượng ước tính cho mỗi bước KHÔNG ĐƯỢC vượt quá 20 phút.
-3. Bước đầu tiên phải cực kỳ dễ dàng (dưới 5 phút) để kích hoạt dopamine và vượt qua rào cản khởi động.
-4. Trả về đúng định dạng JSON được yêu cầu, không kèm bất kỳ lời dẫn nào khác.
+You are an expert cognitive behavioral specialist assisting individuals with ADHD.
+Decompose the specified task into 3 to 5 concrete, actionable micro-steps.
+Mandatory constraints:
+1. Every subtask MUST begin with an unambiguous action verb (e.g., "Open...", "Outline 3 bullets...", "Search...").
+2. Estimated duration for each step MUST NOT exceed 20 minutes.
+3. The first step MUST be extremely low-friction (< 5 minutes) to trigger dopamine and break initiation paralysis.
+4. Output strictly valid JSON matching the requested schema without conversational filler.
 
-Nhiệm vụ: {taskTitle}
-Mô tả bổ sung: {taskDescription}
-Hạn chót: {deadline}
+Task Title: {taskTitle}
+Context Description: {taskDescription}
+Target Deadline: {deadline}
 ```
 
-#### Output JSON Schema (AI trả về cho Backend):
+#### Structured JSON Output Schema:
 ```json
 {
-  "taskId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "originalTitle": "Hoàn thành bài thuyết trình môn Trí tuệ Nhân tạo",
+  "taskId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "originalTitle": "Prepare Software Architecture Final Slides",
   "estimatedTotalMinutes": 45,
   "subtasks": [
     {
       "stepOrder": 1,
-      "title": "Mở Google Slides và chọn một mẫu template màu tối giản",
+      "title": "Open Google Slides and select a minimalist dark presentation template",
       "estimatedMinutes": 5,
       "energyLevel": "LOW"
     },
     {
       "stepOrder": 2,
-      "title": "Viết tiêu đề 4 phần chính vào 4 slide trống",
+      "title": "Write 4 section title cards matching the rubric criteria",
       "estimatedMinutes": 10,
       "energyLevel": "MEDIUM"
     },
     {
       "stepOrder": 3,
-      "title": "Soạn nội dung chi tiết cho phần Định nghĩa & Vấn đề",
+      "title": "Draft architectural diagram description for the backend services",
       "estimatedMinutes": 15,
       "energyLevel": "HIGH"
     },
     {
       "stepOrder": 4,
-      "title": "Xem lại toàn bộ slide và thêm 2 hình ảnh minh họa",
+      "title": "Review slide progression and attach 2 system workflow screenshots",
       "estimatedMinutes": 15,
       "energyLevel": "MEDIUM"
     }
@@ -266,42 +247,26 @@ Hạn chót: {deadline}
 
 ---
 
-### 5.3. Thuật Toán Xếp Thứ Tự Ưu Tiên Thích Ứng (Adaptive Prioritization Score)
+## 6. Risk Matrix & Mitigations
 
-Hệ thống tính toán chỉ số ưu tiên $P$ (Priority Score) cho từng công việc trong hàng đợi theo công thức:
-
-$$P = (w_1 \cdot \text{Urgency}) + (w_2 \cdot \text{Importance}) + (w_3 \cdot \text{EnergyFit})$$
-
-Trong đó:
-* **Urgency (1 - 5):** Tăng dần khi thời gian đến Deadline càng ngắn (nguy cấp = 5).
-* **Importance (1 - 5):** Người dùng gắn nhãn tác động của công việc.
-* **EnergyFit (0 - 5):** Độ tương thích giữa mức năng lượng hiện tại của người dùng ($E_{current}$) và năng lượng yêu cầu của task ($E_{task}$):
-  * Nếu $E_{current} = E_{task} \implies \text{EnergyFit} = 5$
-  * Nếu người dùng đang mệt ($E_{current} = \text{LOW}$) nhưng task yêu cầu $\text{HIGH} \implies \text{EnergyFit} = 0$ (tránh gây kiệt sức).
-
----
-
-## 6. Ma Trận Quản Trị Rủi Ro (Risk Management)
-
-| Rủi Ro Nhận Diện | Khả Năng & Tác Động | Biện Pháp Kiểm Soát & Giảm Thiểu |
+| Identified Risk | Likelihood / Impact | Mitigation Strategy |
 | :--- | :--- | :--- |
-| **AI Ảo giác / Gợi ý vô lý (Hallucination)** | Thấp / Trung bình | Áp dụng cơ chế **Human-in-the-loop**: Người dùng luôn phải xác nhận và có quyền sửa từng từ trước khi lưu vào database. |
-| **Giới hạn tốc độ gọi AI (API Rate Limit)** | Trung bình / Cao | Caching kết quả phân rã các tác vụ phổ biến trên Redis; áp dụng hàng đợi bất đồng bộ (Async Queue) trong Spring Boot. |
-| **Người dùng cảm thấy tội lỗi khi bỏ dở (RSD)** | Cao / Nghiêm trọng | Tính năng "Chuỗi an toàn" (*Streak Freeze*), hệ thống không dùng màu đỏ cảnh báo, không gửi thông báo tiêu cực dạng "Bạn đã quên...". |
-| **Mất kết nối mạng khi đang làm việc** | Trung bình / Cao | Thiết kế Mobile Client Offline-First, lưu dữ liệu tạm trên thiết bị và đồng bộ ngầm khi có Internet trở lại. |
+| **AI Hallucination / Impractical Steps** | Low / Medium | **Human-in-the-Loop Gate:** Users review, edit, or reject all AI suggestions prior to database persistence. |
+| **Upstream AI Latency or Outages** | Medium / High | In-memory caching for recurring standard tasks; graceful fallback to manual checklist entry on network failure. |
+| **Rejection Sensitive Dysphoria (RSD)** | High / Critical | Zero punitive notifications; elimination of high-stress red overdue badges; non-judgmental tone throughout copy. |
+| **Offline Disconnection on Mobile** | Medium / High | Offline-first optimistic architecture: mutations persist to local storage and sync idempotently when connectivity restores. |
 
 ---
 
-## 7. Lộ Trình Phát Triển (Product Roadmap)
+## 7. Product Release Roadmap
 
-* **Giai đoạn 1 (Tuần 1 - Tuần 3): Foundation & Core MVP**
-  * Thiết lập Source Base: Mobile (Expo React Native) & Backend (Spring Boot 3 + PostgreSQL).
-  * Hoàn thiện Auth JWT, Quản lý Board và Kanban 4 cột.
-  * Tích hợp AI Task Breakdown (Spring AI + Gemini API) có Modal duyệt trước.
-* **Giai đoạn 2 (Tuần 4 - Tuần 6): ADHD Polish & Prioritization**
-  * Thuật toán AI Prioritization theo mức năng lượng.
-  * Focus Mode kèm Pomodoro tối giản.
-  * Hệ thống Vi tích phân (XP, Streak Freeze nhẹ nhàng).
-* **Giai đoạn 3 (Sau MVP): Tích hợp Nâng cao**
-  * Đồng bộ Google Calendar 2 chiều.
-  * Widget ghi chú nhanh trên màn hình chính của iOS / Android.
+* **Milestone 1 (Week 1–2): Foundation & Architecture**
+  * Repository initialization, PRD baseline, and system architecture sign-off.
+  * Base scaffolding for Spring Boot 3 microservice and React Native Expo client.
+* **Milestone 2 (Week 3–4): Core Kanban & AI Engine**
+  * Authentication (JWT + Google OAuth2), 4-lane Kanban with WIP limits.
+  * Integration with Gemini API for on-demand task decomposition with preview modal.
+* **Milestone 3 (Week 5–6): ADHD Ergonomics & Gamification**
+  * Energy-adaptive prioritization algorithm.
+  * Single-task Focus Mode with Pomodoro timer.
+  * Gentle streak mechanics with Streak Freeze credit system.

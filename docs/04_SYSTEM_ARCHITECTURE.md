@@ -1,31 +1,31 @@
-# Kiến Trúc Hệ Thống (System Architecture & Design) — ORBIT
+# System Architecture & Technical Design — ORBIT
 
-| Thông Tin Kiến Trúc | Chi Tiết |
+| Architectural Specification | Value |
 | :--- | :--- |
-| **Dự Án** | **Orbit** – Hệ Thống Điều Phối Công Việc Thông Minh Cho Người ADHD |
-| **Mô Hình Kiến Trúc** | 3-Tier Layered Architecture + Stateless RESTful Service + AI Integration |
-| **Nền Tảng Client** | Mobile Cross-Platform: **React Native (Expo)** with TypeScript |
-| **Nền Tảng Server** | Backend API: **Java 17/21 & Spring Boot 3.x** |
-| **Cơ Sở Dữ Liệu** | **PostgreSQL 15+** (Relational DB) & Local Storage (Offline Cache) |
-| **Dịch Vụ AI** | Google Gemini API / OpenAI API via Spring AI |
+| **Project** | **Orbit** – Intelligent Task Orchestrator for ADHD Minds |
+| **Architecture Paradigm** | 3-Tier Layered Architecture + Stateless RESTful Microservice + Human-in-the-Loop AI |
+| **Mobile Client** | Cross-Platform: **React Native (Expo SDK)** with TypeScript |
+| **Backend Server** | Enterprise API: **Java 17/21 LTS & Spring Boot 3.x** |
+| **Database** | Relational: **PostgreSQL 15+** & Local Persistent Cache (AsyncStorage / SQLite) |
+| **AI Orchestration** | Google Gemini 1.5 Flash / OpenAI GPT-4o-mini via Spring AI |
 
 ---
 
-## 1. Sơ Đồ Tổng Quan Kiến Trúc (High-Level Architecture)
+## 1. High-Level System Architecture
 
 ```mermaid
 flowchart TB
     subgraph MobileClient ["📱 Client Layer (React Native / Expo)"]
-        UI["UI Screens (Kanban, Focus Mode, Quick Capture)"]
-        State["State Management (Zustand / TanStack Query)"]
-        Offline["Offline Cache (AsyncStorage / SQLite)"]
+        UI["UI Components (Kanban, Focus Mode, Quick Capture)"]
+        State["Client State (Zustand & TanStack Query)"]
+        Offline["Local Offline Store (AsyncStorage / SQLite)"]
         UI <--> State
         State <--> Offline
     end
 
-    subgraph Gateway ["🌐 API & Security Gateway"]
+    subgraph Gateway ["🌐 Security & Gateway Layer"]
         CORS["CORS & Security Filter Chain"]
-        JWTFilter["JWT Authentication Filter"]
+        JWTFilter["JWT Stateless Auth Filter"]
         CORS --> JWTFilter
     end
 
@@ -37,13 +37,13 @@ flowchart TB
             TaskController["TaskController"]
             AIController["AIController"]
         end
-        subgraph Services ["Service Layer (Business Logic)"]
+        subgraph Services ["Service Layer (Business Rules)"]
             AuthService["AuthService & UserProfile"]
             TaskService["TaskService & KanbanRules"]
-            AIService["AIService (Decomposition & Prioritize)"]
+            AIService["AIService (Decompose & Prioritize)"]
             StreakService["Gamification & StreakService"]
         end
-        subgraph Repositories ["Data Access Layer (Spring Data JPA)"]
+        subgraph Repositories ["Data Access (Spring Data JPA)"]
             UserRepo["UserRepository"]
             BoardRepo["BoardRepository"]
             TaskRepo["TaskRepository"]
@@ -53,43 +53,41 @@ flowchart TB
         Services --> Repositories
     end
 
-    subgraph ExternalServices ["☁️ External & AI Services"]
+    subgraph ExternalServices ["☁️ External Services"]
         LLM["Google Gemini / OpenAI LLM"]
         GCal["Google Calendar API"]
     end
 
-    subgraph Persistence ["🗄️ Database Layer"]
+    subgraph Persistence ["🗄️ Persistence Layer"]
         Postgres[(PostgreSQL Database)]
     end
 
     MobileClient -- "HTTPS / JSON (REST API)" --> Gateway
     Gateway --> Controllers
     AIService -- "HTTPS / Prompt JSON Mode" --> LLM
-    Services -. "OAuth2 Sync" .-> GCal
+    Services -. "OAuth2 Synchronization" .-> GCal
     Repositories --> Postgres
 ```
 
 ---
 
-## 2. Ngăn Xếp Công Nghệ (Technology Stack)
+## 2. Technology Stack & Architectural Justification
 
-### 2.1. Mobile Client (Ứng dụng Di Động)
-* **Framework:** **React Native** (sử dụng **Expo SDK**) — Giúp phát triển nhanh chóng cho cả iOS và Android với mã nguồn dùng chung (codebase thống nhất).
-* **Ngôn ngữ:** **TypeScript** — Đảm bảo tính chặt chẽ về mặt kiểu dữ liệu và giảm thiểu lỗi runtime.
-* **Quản lý State:** **Zustand** (cho Client State nhẹ nhàng) kết hợp **TanStack Query (React Query)** để caching và quản lý dữ liệu bất đồng bộ từ Server.
-* **Giao diện & Chuyển động:** **React Native Reanimated** — Cung cấp hiệu ứng kéo thả thẻ Kanban và chuyển cảnh sang Chế độ Focus mượt mà 60fps, không giật lag gây xao nhãng.
-* **Lưu trữ cục bộ:** **AsyncStorage** hoặc **WatermelonDB / SQLite** phục vụ cơ chế xem và tick việc ngoại tuyến (Offline-First).
+### 2.1. Mobile Client Layer
+* **Framework:** **React Native (Expo SDK 51+)** — Single TypeScript codebase providing native 60fps mobile experiences across iOS and Android. Essential for ADHD individuals who require an always-accessible mobile device to capture emerging thoughts instantly.
+* **State Management:** **Zustand** (lightweight client state) combined with **TanStack Query (React Query)** for declarative server-state management, automated background synchronization, and optimistic UI updates.
+* **Animation Engine:** **React Native Reanimated** — Delivers fluid, stutter-free drag-and-drop animations between Kanban lanes and gentle transitions to Focus Mode, avoiding jarring visual jolts.
+* **Local Persistence:** **AsyncStorage** or embedded **SQLite** — Enables offline-first functionality so that network disconnections never block task capture.
 
-### 2.2. Backend Server (Máy Chủ Xử Lý)
-* **Framework:** **Spring Boot 3.x** (nền tảng **Java 17/21 LTS**).
-* **Bảo mật:** **Spring Security 6** với xác thực Stateless dựa trên **JSON Web Token (JWT)** và hỗ trợ **Google OAuth2 Login**.
-* **Tương tác Cơ sở dữ liệu:** **Spring Data JPA (Hibernate)** kết hợp Connection Pool **HikariCP** cho hiệu năng truy vấn cao.
-* **Tích hợp AI:** **Spring AI** — Hỗ trợ gọi các mô hình sinh (Generative AI) với cơ chế bọc tham số an toàn (Prompt Templates) và ép kiểu cấu trúc JSON đầu ra (Structured Outputs).
-* **Quản lý Migration:** **Flyway** hoặc **Liquibase** để theo dõi và quản lý các phiên bản cấu trúc bảng database.
+### 2.2. Backend Application Layer
+* **Platform:** **Java 17/21 LTS** running **Spring Boot 3.x**.
+* **Security Architecture:** **Spring Security 6** with stateless **JSON Web Tokens (JWT)** and **Google OAuth2** integration. Token refresh cycles isolate session lifecycles without database-bound session storage.
+* **Data Persistence:** **Spring Data JPA (Hibernate 6)** with **HikariCP** connection pooling, ensuring transaction atomicity and low-latency database queries.
+* **AI Orchestration:** **Spring AI** — Provides resilient client wrappers, prompt templating, and structured JSON output mapping with schema validation.
 
 ---
 
-## 3. Thiết Kế Cơ Sở Dữ Liệu (Database Schema / ERD)
+## 3. Database Schema & Entity Relationship Diagram (ERD)
 
 ```mermaid
 erDiagram
@@ -97,7 +95,7 @@ erDiagram
     USERS ||--o{ STREAKS : tracks
     BOARDS ||--|{ COLUMNS : contains
     COLUMNS ||--o{ TASKS : holds
-    TASKS ||--o{ SUBTASKS : breaks_down_into
+    TASKS ||--o{ SUBTASKS : decomposes_into
     TASKS ||--o{ AI_LOGS : generates
 
     USERS {
@@ -106,7 +104,7 @@ erDiagram
         string password_hash
         string display_name
         string avatar_url
-        string current_energy_level
+        string current_energy_level "LOW, MEDIUM, HIGH"
         timestamp created_at
         timestamp updated_at
     }
@@ -126,7 +124,7 @@ erDiagram
         uuid board_id FK
         string name
         string column_type "BACKLOG, TODO, DOING, DONE"
-        int wip_limit "Mặc định: Doing = 1"
+        int wip_limit "Default: Doing = 1"
         int position
     }
 
@@ -162,7 +160,7 @@ erDiagram
         uuid user_id FK
         int current_streak
         int max_streak
-        int freeze_credits "Bảo vệ chuỗi khi lỡ 1 ngày"
+        int freeze_credits "Protects streak across rest days"
         date last_active_date
         int total_xp
     }
@@ -180,50 +178,39 @@ erDiagram
 
 ---
 
-## 4. Đặc Tả RESTful API Contracts (Các Endpoint Cốt Lõi)
+## 4. RESTful API Endpoints Specification
 
-Mọi yêu cầu đến API (ngoại trừ Auth) đều yêu cầu Header: `Authorization: Bearer <JWT_TOKEN>`.
+All protected endpoints require the header: `Authorization: Bearer <JWT_TOKEN>`.
 
-### 4.1. Phân Hệ Xác Thực (Authentication API)
-* `POST /api/v1/auth/register` — Đăng ký tài khoản bằng Email/Mật khẩu.
-* `POST /api/v1/auth/login` — Đăng nhập và nhận cặp Access/Refresh Token.
-* `POST /api/v1/auth/google` — Đăng nhập qua Google ID Token.
-* `POST /api/v1/auth/refresh` — Làm mới Access Token.
+### 4.1. Authentication Endpoints
+* `POST /api/v1/auth/register` — Create account with Email, Password, and Display Name.
+* `POST /api/v1/auth/login` — Authenticate credentials; returns access & refresh tokens.
+* `POST /api/v1/auth/google` — Authenticate via Google OAuth2 ID Token.
+* `POST /api/v1/auth/refresh` — Issue a new short-lived Access Token.
 
-### 4.2. Phân Hệ Bảng & Kanban (Board & Kanban API)
-* `GET /api/v1/boards` — Lấy danh sách các Board của người dùng hiện tại.
-* `POST /api/v1/boards` — Tạo một Board mới (tự động khởi tạo 4 cột mặc định: Backlog, Todo, Doing, Done).
-* `GET /api/v1/boards/{boardId}/kanban` — Lấy đầy đủ dữ liệu cây Kanban (Cột và các Thẻ việc) để render bảng.
+### 4.2. Board & Kanban Endpoints
+* `GET /api/v1/boards` — Retrieve all active boards owned by the authenticated user.
+* `POST /api/v1/boards` — Create a board; automatically initializes the 4 canonical columns (`Backlog`, `Todo`, `Doing`, `Done`).
+* `GET /api/v1/boards/{boardId}/kanban` — Fetch hierarchical board structure (columns and tasks) for board rendering.
 
-### 4.3. Phân Hệ Thẻ Việc (Task API)
-* `POST /api/v1/tasks/quick-capture` — Tạo nhanh thẻ việc chỉ với tiêu đề (`title`) và tùy chọn board.
-* `PATCH /api/v1/tasks/{taskId}/move` — Di chuyển thẻ sang cột khác hoặc thay đổi thứ tự `position`.
+### 4.3. Task Lifecycle Endpoints
+* `POST /api/v1/tasks/quick-capture` — Instant task creation requiring only a `title`.
+* `PATCH /api/v1/tasks/{taskId}/move` — Move ticket between columns or update ordering position.
   * *Request Body:* `{"targetColumnId": "...", "newPosition": 0}`
-  * *Validation:* Nếu chuyển sang cột có `wip_limit` và đã đầy, Server trả về lỗi `400 Bad Request` kèm thông báo thân thiện.
-* `PUT /api/v1/tasks/{taskId}` — Chỉnh sửa chi tiết thẻ việc.
-* `DELETE /api/v1/tasks/{taskId}` — Xóa thẻ việc.
+  * *WIP Validation:* If moving into a column whose `wip_limit` is exceeded, the server returns `400 Bad Request` with an encouraging client message.
+* `PUT /api/v1/tasks/{taskId}` — Update task properties (title, deadline, description).
+* `DELETE /api/v1/tasks/{taskId}` — Remove a task and cascade deletion to its subtasks.
 
-### 4.4. Phân Hệ Trợ Lý AI (AI Assistant API)
-* `POST /api/v1/tasks/{taskId}/ai-decompose` — Gọi AI phân rã tác vụ thành các bước con.
-  * *Response (200 OK):*
-    ```json
-    {
-      "taskId": "...",
-      "estimatedTotalMinutes": 40,
-      "suggestedSubtasks": [
-        { "stepOrder": 1, "title": "Bước 1...", "estimatedMinutes": 5, "energyLevel": "LOW" },
-        { "stepOrder": 2, "title": "Bước 2...", "estimatedMinutes": 15, "energyLevel": "MEDIUM" }
-      ]
-    }
-    ```
-* `POST /api/v1/tasks/{taskId}/subtasks/bulk` — Áp dụng danh sách subtasks sau khi người dùng đã duyệt/sửa.
-* `POST /api/v1/boards/{boardId}/ai-prioritize` — Tính toán lại thứ tự ưu tiên các việc trong cột Todo theo mức năng lượng hiện tại của người dùng.
+### 4.4. AI Assistant Endpoints
+* `POST /api/v1/tasks/{taskId}/ai-decompose` — Request AI decomposition. Returns a JSON array of suggested micro-steps (< 20 mins) for client-side preview.
+* `POST /api/v1/tasks/{taskId}/subtasks/bulk` — Persist the user-approved subtasks checklist.
+* `POST /api/v1/boards/{boardId}/ai-prioritize` — Reorder the Todo lane based on current energy and deadlines.
 
 ---
 
-## 5. Chiến Lược Đồng Bộ Ngoại Tuyến (Offline-First Strategy)
+## 5. Offline-First Resilience & Failure Recovery
 
-Đối với người dùng ADHD, việc ứng dụng bị xoay vòng loading khi mất mạng sẽ ngay lập tức làm gián đoạn dòng tập trung (*Focus Flow*). Do đó hệ thống áp dụng cơ chế:
-1. **Optimistic UI Updates (Cập nhật giao diện lạc quan):** Khi người dùng kéo thẻ, tích hoàn thành task hoặc thêm task nhanh, UI trên Mobile cập nhật ngay lập tức mà không chờ Server phản hồi.
-2. **Action Queue (Hàng đợi thao tác ngoại tuyến):** Các hành động được lưu vào hàng đợi cục bộ trên máy. Khi có kết nối Internet trở lại, Client tự động gửi các yêu cầu đồng bộ tuần tự lên Spring Boot.
-3. **Xung đột phiên bản:** Sử dụng cơ chế `updated_at` timestamp để giải quyết xung đột (quy tắc: thao tác gần nhất được ưu tiên).
+For individuals with ADHD, loading spinners and lost input cause immediate cognitive drop-off. Orbit enforces three recovery guarantees:
+1. **Optimistic UI Updates:** Dragging a ticket or creating an item reflects on the mobile interface instantly (< 100ms) before network confirmation.
+2. **Failure Reversion:** If an API call fails, the client rolls back the ticket to its prior lane, displays an unobtrusive toast, preserves user input drafts, and provides an explicit "Retry" action.
+3. **Resource Isolation:** All database queries enforce strict user scoping (`where user_id = :authenticatedUserId`), preventing unauthorized cross-board access.
