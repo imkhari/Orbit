@@ -28,10 +28,10 @@ Unlike conventional project management tools (Jira, Trello) that impose multi-st
 
 All software engineering and product management artifacts are maintained in the [`docs/`](docs/) directory:
 
-1. 📄 [**01. Project Brief**](docs/01_PROJECT_BRIEF.md): Core problem hypothesis, primary persona, MVP scope, explicit exclusions, and the decision log (D1–D13).
-2. 📋 [**02. Product Requirements Document (PRD)**](docs/02_PRD.md): Comprehensive PRD covering ADHD psychological background, user personas, empathy mapping, customer journey, functional/non-functional requirements, and AI data contracts.
-3. 🎯 [**03. User Stories & Acceptance Criteria**](docs/03_USER_STORIES_AC.md): MoSCoW-prioritized user stories accompanied by observable **Gherkin (`Given - When - Then`)** acceptance criteria.
-4. 🏗️ [**04. System Architecture & Design**](docs/04_SYSTEM_ARCHITECTURE.md): 3-tier layered system design, Mermaid Database ERD, RESTful API endpoint specifications, and offline-first resilience strategy.
+1. 📄 [**01. Project Brief**](docs/prd/01_PROJECT_BRIEF.md): Core problem hypothesis, primary persona, MVP scope, explicit exclusions, and the decision log (D1–D13).
+2. 📋 [**02. Product Requirements Document (PRD)**](docs/prd/02_PRD.md): Comprehensive PRD covering ADHD psychological background, user personas, empathy mapping, customer journey, functional/non-functional requirements, and AI data contracts.
+3. 🎯 [**03. User Stories & Acceptance Criteria**](docs/prd/03_USER_STORIES_AC.md): MoSCoW-prioritized user stories accompanied by observable **Gherkin (`Given - When - Then`)** acceptance criteria.
+4. 🏗️ [**04. System Architecture & Design**](docs/architecture/01_SYSTEM_ARCHITECTURE.md): 3-tier layered system design, Mermaid Database ERD, RESTful API endpoint specifications, and offline-first resilience strategy.
 
 ---
 
@@ -69,10 +69,12 @@ orbit_project/
 ├── .gitignore                      # Git exclusion rules (Node, Java, macOS, IDEs)
 ├── README.md                       # Project overview and development guidelines
 ├── docs/                           # Software Engineering & Product Documentation
-│   ├── 01_PROJECT_BRIEF.md         # Initial project scope and decision log
-│   ├── 02_PRD.md                   # Full Product Requirements Document (Chapter 3 aligned)
-│   ├── 03_USER_STORIES_AC.md       # MoSCoW User Stories and Gherkin Acceptance Criteria
-│   └── 04_SYSTEM_ARCHITECTURE.md   # Architectural design, ERD, and API contracts
+│   ├── prd/                        # Product Requirements & Analysis Module
+│   │   ├── 01_PROJECT_BRIEF.md     # Initial project scope and decision log
+│   │   ├── 02_PRD.md               # Full Product Requirements Document (Chapter 3 aligned)
+│   │   └── 03_USER_STORIES_AC.md   # MoSCoW User Stories and Gherkin Acceptance Criteria
+│   └── architecture/               # Technical & System Design Module
+│       └── 01_SYSTEM_ARCHITECTURE.md # Architectural design, ERD, and API contracts
 ├── mobile/                         # Mobile Client Scaffolding (React Native Expo)
 │   ├── src/
 │   │   ├── components/             # Reusable UI widgets
