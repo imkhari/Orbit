@@ -127,3 +127,21 @@ Hệ thống sử dụng AI kết hợp logic đánh giá ma trận thích ứng
 | **D4** | Kiến trúc Kanban 4 cột cố định | Triệt tiêu gánh nặng phải cấu hình hệ thống |
 | **D5** | Human-in-the-loop cho AI | Bảo đảm người dùng nắm quyền tự chủ, tránh cảm giác bị máy móc thao túng công việc |
 | **D6** | Gamification nhẹ nhàng (Gentle Gamification) | Người ADHD rất nhạy cảm với sự từ chối/thất bại (RSD), cơ chế điểm số phải mang tính khuyến khích, không trừng phạt |
+| **D7** | AI Task Decomposition | Đề xuất các bước nhỏ hơn, người dùng phê duyệt trước khi tạo |
+| **D8** | Yêu cầu phê duyệt trước khi tạo Subtask | Bảo đảm tính kiểm soát của người dùng (Human-in-the-loop) |
+| **D9** | Xác thực Email / Password | Phương thức đăng ký cơ bản |
+| **D10** | Đăng nhập Google (OAuth2) | Giảm thiểu ma sát đăng nhập 1 chạm |
+| **D11** | Tích hợp Google Calendar | Hỗ trợ người dùng khắc phục hội chứng mù thời gian |
+| **D12** | Áp dụng Gamification nhẹ nhàng | Kích hoạt dopamine tích cực mà không tạo áp lực trừng phạt |
+| **D13** | Khác biệt cốt lõi: AI Prioritization + AI Decomposition | Định vị độc nhất so với Trello / Jira / Notion |
+
+---
+
+## 10. Các Giả Định Còn Bỏ Ngỏ (Open Assumptions)
+
+1. **Phạm vi chia sẻ:** Người dùng cá nhân hay nhiều người cùng chia sẻ một board (MVP xác định tập trung cho người dùng cá nhân trước).
+2. **Xác định mức năng lượng:** Cách xác định trạng thái năng lượng/tập trung của người ADHD (cho người dùng chọn thủ công bằng 3 nấc ☕/⚡/🔥 hoặc dựa trên khung giờ sinh học).
+3. **Chi tiết cơ chế gamification:** Tỷ lệ thưởng XP và cơ chế bảo lưu chuỗi (Streak Freeze).
+4. **Mức độ đồng bộ với Google Calendar:** Đồng bộ 1 chiều (đẩy deadline lên Calendar) hay đồng bộ 2 chiều.
+5. **Tiêu chí đo lường hiệu quả AI:** Tiêu chí đánh giá chất lượng các bước micro-tasks do AI sinh ra.
+
