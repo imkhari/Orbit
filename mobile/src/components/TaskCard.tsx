@@ -6,13 +6,17 @@ interface TaskCardProps {
   task: Task;
   onMoveTask: (taskId: string, targetStatus: TaskStatus) => void;
   onOpenAIDecompose: (task: Task) => void;
+  onFocusTask?: (task: Task) => void;
   onToggleSubtask?: (taskId: string, subtaskId: string) => void;
+  isDimmed?: boolean;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
   onMoveTask,
   onOpenAIDecompose,
+  onFocusTask,
+  isDimmed = false,
 }) => {
   // Energy styling helper
   const getEnergyBadge = (level: EnergyLevel) => {
@@ -56,13 +60,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         );
       case 'DOING':
         return (
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.doneBtn]}
-            onPress={() => onMoveTask(task.id, 'DONE')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.doneBtnText}>Mark Done ✓</Text>
-          </TouchableOpacity>
+          <View style={styles.doingActionsGroup}>
+            {onFocusTask && (
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.focusNowBtn]}
+                onPress={() => onFocusTask(task)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.focusNowBtnText}>🎯 Tập trung ngay</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.doneBtn]}
+              onPress={() => onMoveTask(task.id, 'DONE')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.doneBtnText}>Xong ✓</Text>
+            </TouchableOpacity>
+          </View>
         );
       case 'DONE':
         return (
@@ -78,7 +93,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   return (
-    <View style={[styles.card, task.status === 'DOING' && styles.doingCardHighlight]}>
+    <View
+      style={[
+        styles.card,
+        task.status === 'DOING' && styles.doingCardHighlight,
+        isDimmed && styles.cardDimmed,
+      ]}
+    >
       {/* Header: Title & Energy Badge */}
       <View style={styles.headerRow}>
         <Text style={styles.taskTitle}>{task.title}</Text>
@@ -262,4 +283,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  cardDimmed: {
+    opacity: 0.38,
+    borderStyle: 'dashed',
+    borderColor: '#475569',
+  },
+  doingActionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  focusNowBtn: {
+    backgroundColor: '#0284C7',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  focusNowBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });
+

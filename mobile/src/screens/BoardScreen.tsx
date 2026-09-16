@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,152 +6,53 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Task, TaskStatus, EnergyLevel, Subtask } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { QuickCaptureBar } from '../components/QuickCaptureBar';
 import { AIDecomposeModal } from '../components/AIDecomposeModal';
+import {
+  EnergyFilterWidget,
+  EnergyFilterType,
+} from '../components/EnergyFilterWidget';
 
-interface BoardScreenProps {
+// [Fix #1] All props are required — no internal mock data.
+// Single source of truth for tasks lives in App.tsx.
+// Previously this file duplicated ~130 lines of INITIAL_MOCK_TASKS
+// that was dead code when App.tsx passed the `tasks` prop.
+export interface BoardScreenProps {
+  tasks: Task[];
+  onMoveTask: (taskId: string, targetStatus: TaskStatus) => void;
+  onQuickAdd: (title: string, energy: EnergyLevel) => void;
+  onApplySubtasks: (taskId: string, newSubtasks: Subtask[]) => void;
   onNavigateFocus?: () => void;
+  onFocusTask?: (task: Task) => void;
 }
 
-export const BoardScreen: React.FC<BoardScreenProps> = ({ onNavigateFocus }) => {
+export const BoardScreen: React.FC<BoardScreenProps> = ({
+  tasks,
+  onMoveTask,
+  onQuickAdd,
+  onApplySubtasks,
+  onNavigateFocus,
+  onFocusTask,
+}) => {
   const [activeColumn, setActiveColumn] = useState<TaskStatus>('TODO');
   const [decomposingTask, setDecomposingTask] = useState<Task | null>(null);
+  const [selectedEnergy, setSelectedEnergy] = useState<EnergyFilterType>('ALL');
 
-  // Initial mock tasks representing realistic ADHD scenarios
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: 'task-1',
-      boardId: 'board-main',
-      title: 'Soạn thảo slide bài tập lớn môn Trí tuệ Nhân tạo',
-      description: 'Cần làm 10 slide tổng kết đồ án cho nhóm trước thứ 6',
-      status: 'DOING',
-      urgency: 'HIGH',
-      energyRequired: 'HIGH',
-      estimatedMinutes: 35,
-      position: 0,
-      createdAt: new Date().toISOString(),
-      subtasks: [
-        {
-          id: 'sub-1-1',
-          taskId: 'task-1',
-          title: 'Chọn mẫu slide màu tối giản dịu mắt',
-          estimatedMinutes: 5,
-          energyLevel: 'LOW',
-          stepOrder: 1,
-          isCompleted: true,
-        },
-        {
-          id: 'sub-1-2',
-          taskId: 'task-1',
-          title: 'Viết tiêu đề 4 phần chính',
-          estimatedMinutes: 10,
-          energyLevel: 'MEDIUM',
-          stepOrder: 2,
-          isCompleted: false,
-        },
-      ],
-    },
-    {
-      id: 'task-2',
-      boardId: 'board-main',
-      title: 'Đọc 5 trang tài liệu về WCAG 2.1 cho người giảm chú ý',
-      description: 'Chuẩn bị luận điểm cho buổi thuyết trình thiết kế',
-      status: 'TODO',
-      urgency: 'MEDIUM',
-      energyRequired: 'LOW',
-      estimatedMinutes: 15,
-      position: 1,
-      createdAt: new Date().toISOString(),
-      subtasks: [],
-    },
-    {
-      id: 'task-3',
-      boardId: 'board-main',
-      title: 'Lên danh sách tính năng cho Sprint tiếp theo',
-      status: 'BACKLOG',
-      urgency: 'LOW',
-      energyRequired: 'MEDIUM',
-      estimatedMinutes: 20,
-      position: 2,
-      createdAt: new Date().toISOString(),
-      subtasks: [],
-    },
-    {
-      id: 'task-4',
-      boardId: 'board-main',
-      title: 'Khởi tạo repository và viết PRD ban đầu',
-      status: 'DONE',
-      urgency: 'MEDIUM',
-      energyRequired: 'HIGH',
-      estimatedMinutes: 45,
-      position: 3,
-      createdAt: new Date().toISOString(),
-      completedAt: new Date().toISOString(),
-      subtasks: [],
-    },
-  ]);
-
-  // Handle task moving with strict WIP (Work-in-progress) check
-  const handleMoveTask = (taskId: string, targetStatus: TaskStatus) => {
-    // Check WIP limit on DOING column (Max 1 task)
-    if (targetStatus === 'DOING') {
-      const currentDoingTasks = tasks.filter(
-        (t) => t.status === 'DOING' && t.id !== taskId
-      );
-      if (currentDoingTasks.length >= 1) {
-        Alert.alert(
-          '🎯 Giới hạn đơn nhiệm (WIP Limit: 1/1)',
-          'Bộ não người ADHD hoạt động tốt nhất khi tập trung vào duy nhất một việc. Hãy hoàn thành hoặc đưa việc hiện tại về Todo trước nhé!',
-          [{ text: 'Đã hiểu' }]
-        );
-        return;
-      }
-    }
-
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, status: targetStatus } : t))
-    );
-  };
-
-  // Add new task via Quick Capture bar
+  // Quick Capture wraps parent callback and switches to BACKLOG column
   const handleQuickAdd = (title: string, energy: EnergyLevel) => {
-    const newTask: Task = {
-      id: `task-${Date.now()}`,
-      boardId: 'board-main',
-      title,
-      status: 'BACKLOG',
-      urgency: 'MEDIUM',
-      energyRequired: energy,
-      estimatedMinutes: 15,
-      position: tasks.length,
-      createdAt: new Date().toISOString(),
-      subtasks: [],
-    };
-
-    setTasks((prev) => [newTask, ...prev]);
-    // Switch to Backlog column so user immediately observes creation
+    onQuickAdd(title, energy);
     setActiveColumn('BACKLOG');
   };
 
-  // Apply subtasks from AI Breakdown modal
-  const handleApplySubtasks = (taskId: string, newSubtasks: Subtask[]) => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === taskId
-          ? {
-              ...t,
-              subtasks: [...t.subtasks, ...newSubtasks],
-              estimatedMinutes:
-                (t.estimatedMinutes || 0) +
-                newSubtasks.reduce((sum, s) => sum + s.estimatedMinutes, 0),
-            }
-          : t
-      )
-    );
+  const handleFocusTaskAction = (task: Task) => {
+    if (onFocusTask) {
+      onFocusTask(task);
+    } else if (onNavigateFocus) {
+      onNavigateFocus();
+    }
   };
 
   // Column definitions
@@ -178,7 +79,27 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({ onNavigateFocus }) => 
     },
   ];
 
-  const currentColumnTasks = tasks.filter((t) => t.status === activeColumn);
+  // [Fix #7] Inline columnTasks filter into the useMemo so that
+  // the memo depends on stable references (tasks, activeColumn, selectedEnergy)
+  // instead of a freshly-allocated `columnTasks` array each render.
+  const displayedTasks = useMemo(() => {
+    const columnTasks = tasks.filter((t) => t.status === activeColumn);
+
+    if (selectedEnergy === 'ALL') {
+      return columnTasks.map((t) => ({ task: t, isDimmed: false }));
+    }
+
+    // Dynamic Re-ranking & Dimming based on Energy Filter
+    // When '☕ Thấp' is selected, low energy tasks are elevated to top with full opacity,
+    // while high/medium energy tasks are demoted and visually dimmed (opacity ~ 0.38).
+    const matched = columnTasks.filter((t) => t.energyRequired === selectedEnergy);
+    const unmatched = columnTasks.filter((t) => t.energyRequired !== selectedEnergy);
+
+    return [
+      ...matched.map((t) => ({ task: t, isDimmed: false })),
+      ...unmatched.map((t) => ({ task: t, isDimmed: true })),
+    ];
+  }, [tasks, activeColumn, selectedEnergy]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -191,7 +112,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({ onNavigateFocus }) => 
           </Text>
         </View>
 
-        {onNavigateFocus ? (
+        {onNavigateFocus && (
           <TouchableOpacity
             style={styles.focusHeaderBtn}
             onPress={onNavigateFocus}
@@ -199,12 +120,16 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({ onNavigateFocus }) => 
           >
             <Text style={styles.focusHeaderBtnText}>🎯 Focus Mode</Text>
           </TouchableOpacity>
-        ) : (
-          <View style={styles.statusPill}>
-            <Text style={styles.statusPillText}>⚡ Năng lượng: Vừa</Text>
-          </View>
         )}
       </View>
+
+      {/* Energy Filter & Streak Shield Widget */}
+      <EnergyFilterWidget
+        selectedEnergy={selectedEnergy}
+        onSelectEnergy={setSelectedEnergy}
+        streakDays={5}
+        freezeCount={1}
+      />
 
       {/* Column Tabs */}
       <View style={styles.columnTabBar}>
@@ -245,12 +170,26 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({ onNavigateFocus }) => 
         })}
       </View>
 
-      {/* Task Cards List */}
+      {/* Task Cards List with Energy-based Rerank and Dimming */}
       <ScrollView
         style={styles.taskListContainer}
         contentContainerStyle={styles.taskListContent}
       >
-        {currentColumnTasks.length === 0 ? (
+        {selectedEnergy !== 'ALL' && (
+          <View style={styles.filterHintBanner}>
+            <Text style={styles.filterHintText}>
+              💡 Đang ưu tiên việc{' '}
+              {selectedEnergy === 'LOW'
+                ? '☕ Thấp'
+                : selectedEnergy === 'MEDIUM'
+                ? '⚡ Vừa'
+                : '🔥 Cao'}
+              . Các việc nặng hơn được xếp dưới và làm mờ để giảm tải nhận thức.
+            </Text>
+          </View>
+        )}
+
+        {displayedTasks.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>☕</Text>
             <Text style={styles.emptyTitle}>Chưa có công việc nào ở cột này</Text>
@@ -259,12 +198,14 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({ onNavigateFocus }) => 
             </Text>
           </View>
         ) : (
-          currentColumnTasks.map((task) => (
+          displayedTasks.map(({ task, isDimmed }) => (
             <TaskCard
               key={task.id}
               task={task}
-              onMoveTask={handleMoveTask}
+              onMoveTask={onMoveTask}
               onOpenAIDecompose={(t) => setDecomposingTask(t)}
+              onFocusTask={handleFocusTaskAction}
+              isDimmed={isDimmed}
             />
           ))
         )}
@@ -278,7 +219,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({ onNavigateFocus }) => 
         visible={decomposingTask !== null}
         task={decomposingTask}
         onClose={() => setDecomposingTask(null)}
-        onApplySubtasks={handleApplySubtasks}
+        onApplySubtasks={onApplySubtasks}
       />
     </SafeAreaView>
   );
@@ -292,7 +233,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 16,
+    paddingBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -310,24 +251,13 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginTop: 2,
   },
-  statusPill: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  statusPillText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
   focusHeaderBtn: {
     backgroundColor: '#0284C7',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#38BDF8',
   },
   focusHeaderBtnText: {
     color: '#FFFFFF',
@@ -353,6 +283,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderWidth: 1,
     borderColor: 'transparent',
+    minHeight: 40,
   },
   columnTabActive: {
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
@@ -384,6 +315,21 @@ const styles = StyleSheet.create({
   },
   countBadgeTextActive: {
     color: '#0F172A',
+  },
+  filterHintBanner: {
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+  },
+  filterHintText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '500',
   },
   taskListContainer: {
     flex: 1,

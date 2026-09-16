@@ -90,9 +90,85 @@ sequenceDiagram
 
 ---
 
-## 3. Supplementary User Flows (Part 2 — Teammate Extension)
+## 3. Supplementary User Flows (Part 2 — Focus Mode & Energy Filtering)
 
-> [!NOTE]
-> The following user flows are allocated to **Teammate (Part 2)** and will be expanded in the next implementation milestone:
-> - **User Flow 3: Single-Task Focus Mode & Pomodoro Integration** (Doing Lane $\to$ Focus View $\to$ Timer Start $\to$ Step Checkoff $\to$ Completion).
-> - **User Flow 4: Cognitive Energy-Based Task Filtering** (Energy Selector $\to$ Re-rank Todo Queue $\to$ Dim high-energy tasks during fatigue).
+### 3.1. User Flow 3: Focus Mode Activation & Single-Task Pomodoro (Kích Hoạt Chế Độ Tập Trung)
+
+When working on a critical task, individuals with ADHD frequently fall victim to visual distraction and peripheral task anxiety. Focus Mode strips away all surrounding Kanban columns and UI noise, locking the cognitive spotlight onto the single task currently in the `DOING` column with an integrated 25-minute Pomodoro timer and interactive micro-step checklist.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as 👤 ADHD User
+    participant Board as 📋 Kanban (DOING Lane)
+    participant App as 📱 App Navigation
+    participant Focus as 🎯 FocusScreen
+    participant Timer as ⏱️ FocusTimer (25m)
+    participant State as 💾 Local State
+
+    User->>Board: Taps '🎯 Tập trung ngay' on active Doing task
+    Board->>App: Trigger transition to Focus Mode
+    App->>Focus: Mount FocusScreen (hide Kanban & QuickCapture)
+    Focus-->>User: Display single task title + micro-steps checklist
+    Focus->>Timer: Initialize Pomodoro countdown (25:00)
+    
+    User->>Timer: Taps '▶ Bắt đầu' (Start)
+    Timer-->>User: Gentle countdown ticking (calm progress indicator)
+    
+    User->>Focus: Taps to complete micro-step 1
+    Focus->>State: Mark subtask done (haptic cue, strikethrough)
+    State-->>Focus: Micro-progress bar updates (e.g. 50%)
+    
+    alt Timer expires or task complete
+        Timer-->>User: Calm chime + 'Pomodoro session completed! 🎉'
+        User->>Focus: Taps 'Hoàn thành công việc' (Mark Done)
+        Focus->>State: Transition task status to DONE
+        State->>App: Return to Kanban Board
+        App-->>User: Display updated Kanban with celebrate toast
+    else User exits early
+        User->>Focus: Taps 'Thoát chế độ tập trung' (Exit)
+        Focus->>App: Preserve elapsed time & return to Kanban Board
+        App-->>User: Re-render Kanban with task still in DOING
+    end
+```
+
+#### Flow Attributes & Cognitive Guarantees:
+* **Zero Cognitive Bleed:** All other columns (`BACKLOG`, `TODO`, `DONE`) and the Quick Capture bar are completely hidden from viewport.
+* **Micro-Step Scaffolding:** Instead of confronting an intimidating macro-task, the user only interacts with bite-sized checkboxes ($\le 20$ min each).
+* **Calm Timer Visuals:** Time display uses soothing cyan/emerald palettes rather than alarming bright red counters to prevent adrenaline-spike anxiety.
+
+---
+
+### 3.2. User Flow 4: Energy-Based Filtering & Dynamic Reranking (Lọc Năng Lượng Nhận Thức)
+
+ADHD productivity heavily depends on fluctuating neurochemical energy (dopamine/norepinephrine levels). When users experience low cognitive energy (burnout, fatigue, brain fog), Orbit dynamically rearranges the task queue to surface gentle, low-friction tasks while dimming demanding tasks.
+
+```mermaid
+flowchart TD
+    Start([User opens Orbit Kanban]) --> CheckEnergy[User assesses mental state: Tired / Brain Fog]
+    CheckEnergy --> TapFilter[User taps '☕ Thấp' in EnergyFilterWidget]
+    
+    TapFilter --> EvalTasks[Orbit Engine evaluates tasks in current column]
+    EvalTasks --> Partition{Evaluate Task Energy Required}
+    
+    Partition -- Energy == LOW --> PromoteTop[Promote to Top of List<br/>100% Opacity + Full Accent]
+    Partition -- Energy == MEDIUM --> DemoteMid[Position in Middle<br/>60% Opacity]
+    Partition -- Energy == HIGH --> DimBottom[Demote to Bottom<br/>35% Opacity + Dimmed Visuals]
+    
+    PromoteTop --> RenderList[Render Sorted & Filtered Board]
+    DemoteMid --> RenderList
+    DimBottom --> RenderList
+    
+    RenderList --> UserSelect[User picks a low-friction ☕ task effortlessly]
+    UserSelect --> StartWork([Start Doing without Analysis Paralysis])
+    
+    style PromoteTop fill:#064E3B,stroke:#059669,stroke-width:2px,color:#ECFDF5
+    style DimBottom fill:#1E293B,stroke:#475569,stroke-width:1px,stroke-dasharray: 5 5,color:#64748B
+    style TapFilter fill:#1E3A8A,stroke:#3B82F6,stroke-width:2px,color:#DBEAFE
+```
+
+#### Cognitive Guarantees:
+* **Eliminates Analysis Paralysis:** Eliminates the guilt of seeing high-effort tasks when mentally drained by visually demoting and fading them out.
+* **Momentum Builder:** Encourages quick-win dopamine loops by highlighting 5-15 minute low-energy micro-tasks.
+* **Streak Shield Visibility:** The accompanying streak widget constantly assures the user that their momentum is protected with a Freeze Shield (`🛡️ 1 Streak Freeze sẵn sàng`).
+
