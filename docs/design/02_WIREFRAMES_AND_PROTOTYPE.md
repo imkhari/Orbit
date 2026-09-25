@@ -286,5 +286,115 @@ Dưới đây là bản vẽ khung dây chi tiết mô phỏng màn hình thiế
 
 ---
 
+### 📱 Screen 6: Task Detail & Subtasks Checklist Modal (`Frame_06_TaskDetail`)
+> **Mục tiêu:** Trung tâm quản lý thẻ việc: đọc ghi chú, tích chọn checklist micro-actions, hoặc phóng thẳng vào Chế độ Tập trung.
 
-*(Xem tiếp các màn hình 6-8 và UI States tại các commit tiếp theo)*
+```text
++-------------------------------------------------------------+
+| [ Đóng X ]                       Trạng thái: [ ĐANG LÀM 🔥 ]| Touch: 44pt
+|                                                             |
+| Tiêu Đề Nhiệm Vụ                                            |
+| Soạn thảo slide đồ án Trí tuệ Nhân tạo                      |
+|                                                             |
+| Ghi chú bổ sung:                                            |
+| Thầy yêu cầu tập trung vào sơ đồ Sequence Diagram & API.    |
+|                                                             |
+| Danh Sách Bước Nhỏ (Tiến độ: 1/3 hoàn thành):               |
+| +---------------------------------------------------------+ |
+| | [✓] 1. Mở Canva/Slides và chọn mẫu màu tối giản (5p)    | | Touch: 48pt
+| +---------------------------------------------------------+ |
+| | [ ] 2. Viết tiêu đề cho 4 phần mục tiêu cốt lõi (10p)   | | Touch: 48pt
+| +---------------------------------------------------------+ |
+| | [ ] 3. Soạn nội dung 2 slide phần Kiến trúc hệ thống    | | Touch: 48pt
+| +---------------------------------------------------------+ |
+|                                                             |
+| [ + Thêm bước nhỏ thủ công... ]          [ ✨ AI Bẻ tiếp ]  | Touch: 44pt
+|                                                             |
+| ⏱️ Tổng ước tính: 35 phút        ⚡ Năng lượng: Vừa         |
+| 📅 Hạn chót: Thứ Sáu, 17:00 (Còn 2 ngày)                    |
+|                                                             |
+| +---------------------------------------------------------+ |
+| |              🎯 BẮT ĐẦU CHẾ ĐỘ FOCUS NGAY               | | (h: 52pt)
+| +---------------------------------------------------------+ | Touch: 52pt
+|                                                             |
+| [ Di chuyển sang Cột khác ▼ ]              [ Lưu trữ thẻ ]  | Touch: 44pt
++-------------------------------------------------------------+
+```
+
+---
+
+### 📱 Screen 7: Focus Mode & Pomodoro Timer Screen (`Frame_07_FocusMode`)
+> **Mục tiêu:** Màn hình cô lập distraction-free tuyệt đối. Ẩn toàn bộ thanh điều hướng; hiển thị duy nhất 1 task đang làm kèm đồng hồ Pomodoro êm dịu và 1 bước hành động tiếp theo.
+
+```text
++-------------------------------------------------------------+
+| [ X Thoát Focus ]                       Đang Tập Trung (1/1)| Touch: 44pt
+|                                                             |
+|             🎯 NHIỆM VỤ HIỆN TẠI DUY NHẤT:                  |
+|       "Soạn thảo slide đồ án Trí tuệ Nhân tạo"              |
+|                                                             |
+|                 +-----------------------+                   |
+|                 |                       |                   |
+|                 |       2 4 : 1 8       |                   | (Size: 32pt)
+|                 |                       |                   |
+|                 +-----------------------+                   |
+|                   [=====>               ]                   | (Sky-Blue)
+|                                                             |
+|   HÀNH ĐỘNG TIẾP THEO BẠN CẦN LÀM NGAY:                     |
+|   +-----------------------------------------------------+   |
+|   | [ ] Bước 2: Viết tiêu đề cho 4 phần mục tiêu (10p)  |   | (h: 56pt)
+|   +-----------------------------------------------------+   | Touch: 56pt
+|                                                             |
+|   +-------------------------+   +-----------------------+   |
+|   |       [ ⏸️ TẠM DỪNG ]    |   |     [ +5 PHÚT ]       |   | (h: 48pt)
+|   +-------------------------+   +-----------------------+   | Touch: 48pt
+|                                                             |
+|   +-----------------------------------------------------+   |
+|   |         ✓  HOÀN THÀNH BƯỚC NÀY (+15 XP)             |   | (h: 52pt)
+|   +-----------------------------------------------------+   | Touch: 52pt
+|                                                             |
+|      "Hít thở sâu một hơi. Bạn đang làm rất tốt đấy!"       | (Affirmation)
++-------------------------------------------------------------+
+```
+
+---
+
+### 📱 Screen 8: Profile, Streak & Energy Settings (`Frame_08_ProfileSettings`)
+> **Mục tiêu:** Quản trị hồ sơ nhận thức; theo dõi chuỗi streak dịu dàng kèm đúng 2 lượt đóng băng chuỗi (`Streak Freeze: 2 / Edge Case 03 trong PRD`) chống cảm giác tội lỗi.
+
+```text
++-------------------------------------------------------------+
+| [ < Quay lại ]                      Cài Đặt Hồ Sơ & Năng Lượng| Touch: 44pt
+|                                                             |
+|      [ Avatar 👨‍💻 ]  Nguyễn Nhật Minh (Inattentive ADHD)     |
+|      minh.nn@orbit.app  •  Cấp độ: Người Du Hành Cấp 4      |
+|                                                             |
+|  CHUỖI ĐỘNG LỰC DỊU DÀNG (GENTLE STREAK):                   |
+|  +-------------------------------------------------------+  |
+|  |  🔥 7 Ngày Liên Tiếp       🛡️ 2 Lượt Đóng Băng Sẵn Sàng|  | (Card: 72pt)
+|  |  "Bạn đã duy trì rất cừ! Nếu mai bạn mệt, Orbit sẽ tự |  |
+|  |   động kích hoạt lượt đóng băng để bảo toàn chuỗi."   |  |
+|  +-------------------------------------------------------+  |
+|                                                             |
+|  CẤU HÌNH NHỊP SINH HỌC & TẬP TRUNG:                        |
+|  - Mức năng lượng mặc định khi mở app:                      |
+|    [ ☕ Thấp ]    [ ⚡ Vừa ]*    [ 🔥 Cao ]                 | Touch: 44pt
+|                                                             |
+|  - Thời lượng Pomodoro phù hợp với bạn:                     |
+|    ( ) 15 phút (Khuyên dùng khi não mệt)                    |
+|    (•) 25 phút (Tiêu chuẩn)                                 |
+|    ( ) 45 phút (Dành cho phiên Hyperfocus sâu)              |
+|                                                             |
+|  THÔNG BÁO VÀ TIẾP CẬN:                                     |
+|  - Rung phản hồi haptic khi hoàn thành task:         [ BẬT ]|
+|  - Nhắc nhở dịu dàng (Không dùng chuông chói tai):   [ BẬT ]|
+|  - Ẩn toàn bộ cảnh báo quá hạn màu đỏ:               [ BẬT ]|
+|                                                             |
+|  [ Đăng Xuất An Toàn ]                                      | Touch: 44pt
++-------------------------------------------------------------+
+```
+
+---
+
+
+*(Xem tiếp UI States và Haptic Engine tại commit tiếp theo)*
