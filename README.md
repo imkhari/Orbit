@@ -32,6 +32,9 @@ All software engineering and product management artifacts are maintained in the 
 2. 📋 [**02. Product Requirements Document (PRD)**](docs/prd/02_PRD.md): Comprehensive PRD covering ADHD psychological background, user personas, empathy mapping, customer journey, functional/non-functional requirements, and AI data contracts.
 3. 🎯 [**03. User Stories & Acceptance Criteria**](docs/prd/03_USER_STORIES_AC.md): MoSCoW-prioritized user stories accompanied by observable **Gherkin (`Given - When - Then`)** acceptance criteria.
 4. 🏗️ [**04. System Architecture & Design**](docs/architecture/01_SYSTEM_ARCHITECTURE.md): 3-tier layered system design, Mermaid Database ERD, RESTful API endpoint specifications, and offline-first resilience strategy.
+5. 🎨 [**05. UI/UX Design & Wireframes**](docs/design/02_WIREFRAMES_AND_PROTOTYPE.md): Complete Design System tokens, 8-screen ASCII Wireframes, UI Edge States, and Haptic/Animation specifications.
+6. 🌊 [**06. User Flows Specification**](docs/design/01_USER_FLOWS.md): Sequence diagrams and step-by-step cognitive interaction flows for ADHD users.
+7. 🔍 [**07. Design Review & Accessibility Audit**](docs/design/03_AI_DESIGN_REVIEW.md): WCAG 2.1 AA audit, contrast ratios, and ADHD cognitive ergonomics analysis.
 
 ---
 
@@ -73,8 +76,12 @@ orbit_project/
 │   │   ├── 01_PROJECT_BRIEF.md     # Initial project scope and decision log
 │   │   ├── 02_PRD.md               # Full Product Requirements Document (Chapter 3 aligned)
 │   │   └── 03_USER_STORIES_AC.md   # MoSCoW User Stories and Gherkin Acceptance Criteria
-│   └── architecture/               # Technical & System Design Module
-│       └── 01_SYSTEM_ARCHITECTURE.md # Architectural design, ERD, and API contracts
+│   ├── architecture/               # Technical & System Design Module
+│   │   └── 01_SYSTEM_ARCHITECTURE.md # Architectural design, ERD, and API contracts
+│   └── design/                     # UI/UX & Wireframes Design Module (Chapter 4 aligned)
+│       ├── 01_USER_FLOWS.md        # Detailed User Flows & Sequence Diagrams
+│       ├── 02_WIREFRAMES_AND_PROTOTYPE.md # 8-Screen Wireframes & Design System Tokens
+│       └── 03_AI_DESIGN_REVIEW.md  # WCAG 2.1 AA Audit & ADHD Cognitive Ergonomics
 ├── mobile/                         # Mobile Client Scaffolding (React Native Expo)
 │   ├── src/
 │   │   ├── components/             # Reusable UI widgets
