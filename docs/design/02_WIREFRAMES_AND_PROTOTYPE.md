@@ -396,5 +396,70 @@ Dưới đây là bản vẽ khung dây chi tiết mô phỏng màn hình thiế
 
 ---
 
+## 4. ĐẶC TẢ CÁC TRẠNG THÁI GIAO DIỆN ĐẶC BIỆT (UI EDGE STATES)
 
-*(Xem tiếp UI States và Haptic Engine tại commit tiếp theo)*
+### 4.1. Màn Hình Trống (Empty State Architecture)
+Người ADHD khi nhìn thấy một màn hình trống trơn màu đen sẽ dễ bị rơi vào trạng thái bơ vơ, tê liệt hành động (*Void Paralysis*). Orbit thiết kế Empty State cho từng cột:
+* **Cột Backlog trống:** Icon `☕` màu Slate-400 dịu nhẹ, tiêu đề *"Đầu óc bạn đang thảnh thơi!"*, thông điệp *"Nếu có ý nghĩ nào nảy ra, hãy gõ 1 dòng ở thanh dưới đáy. Orbit sẽ giữ hộ bạn."*
+* **Cột Doing trống:** Icon `🎯` màu Sky Blue, tiêu đề *"Chưa có việc nào đang làm"*, thông điệp *"Hãy chọn 1 việc vừa sức nhất trong cột 'Cần làm' để bắt đầu nhẹ nhàng nhé!"*
+
+---
+
+### 4.2. Trạng Thái Đang Tải AI (AI Loading & Shimmer State / Edge Case 01 & 12)
+* Tuyệt đối không dùng vòng quay tròn (Spinner) giật cục gây sốt ruột.
+* Sử dụng **Skeleton Shimmer êm ái màu Slate-800 chuyển màu mềm mại**, kết hợp lời trấn an ngẫu nhiên:
+  * *"AI đang nghiên cứu các bước nhỏ vừa sức cho bạn..."*
+  * *"Đang gọt giũa thử thách này thành từng miếng nhỏ dưới 20 phút..."*
+  * *"Hít một hơi thật sâu, kế hoạch sắp sẵn sàng rồi!"*
+* **Cơ chế Fallback khi AI timeout:** Tự động hiển thị 3 bước khởi động mặc định mà không hiện hộp thoại lỗi đỏ.
+
+---
+
+### 4.3. Can Thiệp Khi Vi Phạm Giới Hạn Đơn Nhiệm (WIP Limit Violation / Edge Case 02)
+Khi cột `Doing` đã có 1 việc mà người dùng cố tình kéo thêm việc thứ 2 từ cột `Todo` sang:
+1. Thẻ việc tự động trượt ngược trở lại vị trí cũ ở cột `Todo` bằng hiệu ứng lò xo nhẹ (*Spring Physics*).
+2. Rung nhẹ máy 1 nhịp trầm (`Haptics.notificationAsync(WARNING)`).
+3. Hiển thị thông báo dịu dàng dạng Toast ở đầu màn hình trong 3 giây:
+   > *"🎯 ĐƠN NHIỆM LÀ SIÊU NĂNG LỰC CỦA BẠN! Bạn đang làm việc 'Soạn slide AI'. Hãy hoàn thành dứt điểm hoặc đưa việc này về Todo trước khi nhận thêm việc mới nhé!"*  
+   *(Không dùng từ "LỖI", không dùng màu đỏ, không khóa đơ màn hình)*.
+
+---
+
+### 4.4. Trạng Thái Ngoại Tuyến (Offline & Synchronization State)
+* Khi mất mạng, không bao giờ hiện modal lỗi chặn người dùng.
+* Góc trên hiển thị badge đám mây mờ: `[ ☁️ Đang lưu trên máy ]`.
+* Mọi hành động thêm việc, tick subtask đều được ghi ngay vào bộ nhớ cục bộ (*Local Cache SQLite/WatermelonDB*) và tự động đồng bộ ngầm khi có mạng.
+
+---
+
+## 5. HỆ THỐNG VI TƯƠNG TÁC, HOẠT ẢNH & PHẢN HỒI XÚC GIÁC (HAPTICS)
+
+```mermaid
+graph TD
+    A[Hành Động Người Dùng] -->|Thêm việc nhanh| B(Haptic: Light Impact)
+    B --> C[Card trượt từ trên xuống với Spring Animation]
+    
+    A -->|Tick hoàn thành Subtask| D(Haptic: Medium Impact)
+    D --> E[Gạch ngang chữ + Chớp sáng Mint Emerald nhẹ]
+    
+    A -->|Hoàn thành toàn bộ Task sang Done| F(Haptic: Success Triple Pulse)
+    F --> G[Micro-Confetti pháo hoa êm dịu 1.2s + Cộng điểm XP]
+    
+    A -->|Cố kéo việc thứ 2 vào Doing| H(Haptic: Soft Buzz Warning)
+    H --> I[Card bật ngược về Todo + Toast nhắc nhở thân thiện]
+```
+
+### 5.1. Bảng Quy Chuẩn Rung Phản Hồi Xúc Giác (Haptic Feedback Engine Specs)
+
+| Thao Tác Người Dùng | Mã API Expo Haptics | Độ Trễ | Ý Nghĩa Nhận Thức & Thần Kinh Học |
+| :--- | :--- | :---: | :--- |
+| **Ghi việc nhanh** | `Haptics.impactAsync(Light)` | $< 50\text{ms}$ | Cảm giác như tiếng "tách" bút bi nhẹ, xác nhận đã lưu. |
+| **Tick Subtask** | `Haptics.impactAsync(Medium)`| $< 50\text{ms}$ | Thành tựu vi mô, kích hoạt dopamine lành mạnh tức thì. |
+| **Hoàn tất Task** | `Haptics.notificationAsync(Success)`| $< 80\text{ms}$ | Chuỗi rung 3 nhịp êm, cảm giác hoàn thành nhẹ nhõm. |
+| **Chạm WIP Limit**| `Haptics.notificationAsync(Warning)`| $< 50\text{ms}$ | Rung trầm cảnh báo dịu dàng, không gây giật mình hoảng loạn. |
+
+---
+
+### 5.2. Thông Số Hoạt Ảnh (Spring Animation Parameters)
+* **Chuyển động thẻ Kanban:** `{ damping: 15, stiffness: 120, mass: 1 }` mang lại cảm giác đầm tay, chắc chắn, không trôi lướt quá đà.
+* **Chuyển cảnh Focus Mode:** $300\text{ms}$ mờ dần (*Fade-in / Crossfade*), các thành phần thừa lùi vào bóng tối, mở ra không gian tĩnh lặng tuyệt đối.
