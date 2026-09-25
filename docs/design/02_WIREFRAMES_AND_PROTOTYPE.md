@@ -210,5 +210,81 @@ Dưới đây là bản vẽ khung dây chi tiết mô phỏng màn hình thiế
 
 ---
 
+### 📱 Screen 4: Main Kanban Screen (`Frame_04_KanbanBoard`)
+> **Mục tiêu:** Màn hình trung tâm của Orbit. Bảng 4 cột cố định; **khóa cứng giới hạn Doing = 1 task (WIP = 1 / Edge Case 02 trong PRD)**; thanh Quick Capture thường trực ở đáy.
 
-*(Xem tiếp các màn hình 4-8 và UI States tại các commit tiếp theo)*
+```text
++-------------------------------------------------------------+
+| 🎓 Học Tập & Nghiên Cứu [▼]          [ ⚡ Năng lượng: Vừa ] | (h: 56pt)
+| Orbit • Hệ thống điều phối           [ 🎯 Focus (1) ]       | Touch: 44pt
++-------------------------------------------------------------+
+| [ Backlog (3) ]  [ Todo (2) ]  [ Doing (1/1) 🔥 ] [ Done (4)]| Tab Bar
++-------------------------------------------------------------+
+|                                                             |
+|  +-------------------------------------------------------+  |
+|  | 🃏 Soạn thảo slide đồ án Trí tuệ Nhân tạo             |  | (TaskCard)
+|  |                                                       |  |
+|  | ⏱️ 35 phút    ⚡ Vừa sức     📋 1/3 bước đã xong       |  |
+|  |                                                       |  |
+|  | [ ✨ AI Bẻ nhỏ việc ]               [ Bắt đầu (Doing) ]| | Touch: 44pt
+|  +-------------------------------------------------------+  |
+|                                                             |
+|  +-------------------------------------------------------+  |
+|  | 🃏 Đọc 5 trang tài liệu WCAG 2.1 cho ADHD             |  |
+|  |                                                       |  |
+|  | ⏱️ 15 phút    ☕ Nhẹ nhàng   📋 0/0 bước               |  |
+|  |                                                       |  |
+|  | [ ✨ AI Bẻ nhỏ việc ]               [ Bắt đầu (Doing) ]| | Touch: 44pt
+|  +-------------------------------------------------------+  |
+|                                                             |
++-------------------------------------------------------------+
+| Năng lượng: ( ☕ Thấp )  ( ⚡ Vừa )*  ( 🔥 Cao )            | Quick
+| [ Thêm nhanh việc mới vào Backlog...              ] [ +Thêm]| Capture
++-------------------------------------------------------------+ (h: 88pt)
+```
+
+---
+
+### 📱 Screen 5: AI Task Decomposition Bottom Sheet (`Frame_05_AIDecompose`)
+> **Mục tiêu:** Giao diện bẻ nhỏ việc theo chuẩn **Human-in-the-loop**. AI chỉ đóng vai trò thư ký gợi ý; người dùng toàn quyền bật/tắt và gõ sửa từng từ trực tiếp.
+
+```text
++-------------------------------------------------------------+
+| ==================== [ GẠT ĐỂ ĐÓNG ] ====================== |
+|                                                             |
+| ✨ AI TASK BREAKDOWN (BẺ NHỎ NHIỆM VỤ)                      |
+| "Soạn thảo slide đồ án Trí tuệ Nhân tạo"                    |
+| AI đã chia nhỏ thành các bước dưới 20p. Bạn có thể sửa chữ: |
+|                                                             |
+| +---------------------------------------------------------+ |
+| | [✓] 1. [ Mở Canva/Slides và chọn mẫu màu tối giản    ]  | | Touch: 48pt
+| |        ⏱️ 5 phút   ☕ Nhẹ nhàng                          | |
+| +---------------------------------------------------------+ |
+|                                                             |
+| +---------------------------------------------------------+ |
+| | [✓] 2. [ Viết tiêu đề cho 4 phần mục tiêu cốt lõi    ]  | | Touch: 48pt
+| |        ⏱️ 10 phút  ⚡ Vừa sức                            | |
+| +---------------------------------------------------------+ |
+|                                                             |
+| +---------------------------------------------------------+ |
+| | [✓] 3. [ Soạn nội dung 2 slide phần Kiến trúc hệ thống] | | Touch: 48pt
+| |        ⏱️ 20 phút  🔥 Sâu                                | |
+| +---------------------------------------------------------+ |
+|                                                             |
+| +---------------------------------------------------------+ |
+| | [ ] 4. [ Đọc diễn tập thử 5 phút                     ]  | | Touch: 48pt
+| |        ⏱️ 10 phút  ⚡ Vừa sức (Đã bỏ chọn)               | |
+| +---------------------------------------------------------+ |
+|                                                             |
+| Tổng thời gian dự tính: 35 phút (3 bước được chọn)          |
+|                                                             |
+| +-------------------------+ +-----------------------------+ |
+| |        HỦY BỎ           | |    ÁP DỤNG VÀO THẺ (3)      | | (h: 50pt)
+| +-------------------------+ +-----------------------------+ | Touch: 50pt
++-------------------------------------------------------------+
+```
+
+---
+
+
+*(Xem tiếp các màn hình 6-8 và UI States tại các commit tiếp theo)*
