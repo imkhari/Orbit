@@ -97,7 +97,118 @@ Hệ thống thành phần UI của Orbit được chuẩn hóa thành các Toke
 
 ---
 
-
 ## 3. BẢN VẼ WIREFRAME ASCII CHO TOÀN BỘ 8 MÀN HÌNH CHÍNH
 
-*(Xem tiếp tại các commit thành phần tiếp theo)*
+Dưới đây là bản vẽ khung dây chi tiết mô phỏng màn hình thiết bị di động (Tỷ lệ khung 390x844 pt tiêu chuẩn), có đầy đủ kích thước touch-target, phân bổ visual hierarchy và component naming ready cho Figma.
+
+---
+
+### 📱 Screen 1: Splash & Onboarding Flow (`Frame_01_Onboarding`)
+> **Mục tiêu:** Giảm lo âu ngay từ giây đầu tiên; hướng dẫn 3 bước cốt lõi không quá tải chữ; cho người dùng chọn mức năng lượng khởi đầu.
+
+```text
++-------------------------------------------------------------+ [390 pt]
+|  [Status Bar: 09:41  •  Wifi  •  Battery 100%]              | (h: 44pt)
+|                                                             |
+|                          🌌 ORBIT                           |
+|          "Quỹ đạo bình yên cho tâm trí ADHD"                |
+|                                                             |
+|         +-----------------------------------------+         |
+|         |          [ Minh Họa Tối Giản ]          |         |
+|         |                                         |         |
+|         |     🧩 Bẻ nhỏ việc lớn thành bước <20p  |         |
+|         |     ⚡ Chọn việc vừa với mức năng lượng |         |
+|         |     🎯 Tập trung 1 việc - 0 áp lực trễ  |         |
+|         +-----------------------------------------+         |
+|                                                             |
+|                        ( • )  ( )  ( )                      | (Pagination)
+|                                                             |
+|   Hiện tại bạn đang cảm thấy năng lượng thế nào?             |
+|   +-----------------------------------------------------+   |
+|   | [ ☕ Thấp (Mệt mỏi) ]  [ ⚡ Vừa (Ổn) ]  [ 🔥 Rực cháy ]|   | (h: 48pt)
+|   +-----------------------------------------------------+   | Touch: 48pt
+|                                                             |
+|   +-----------------------------------------------------+   |
+|   |         BẮT ĐẦU HÀNH TRÌNH TẬP TRUNG  ->            |   | (h: 52pt)
+|   +-----------------------------------------------------+   | Touch: 52pt
+|                                                             |
+|             Đã có tài khoản? [ Đăng nhập ngay ]             | Touch: 44pt
+|                                                             |
++-------------------------------------------------------------+
+```
+
+---
+
+### 📱 Screen 2: Authentication Screen (`Frame_02_Auth`)
+> **Mục tiêu:** Giảm tối đa rào cản đăng nhập; form ngắn gọn; đăng nhập 1-chạm Google; thông báo lỗi an toàn cấp form (form-level) không gây mặc cảm tội lỗi.
+
+```text
++-------------------------------------------------------------+
+|  [ < Quay lại ]                                             | Touch: 44pt
+|                                                             |
+|  Đăng Nhập Vào Orbit                                        |
+|  Không cần vội vã. Hãy vào không gian làm việc của bạn.     |
+|                                                             |
+|  Email                                                      |
+|  +-------------------------------------------------------+  |
+|  | user@example.com                                      |  | (h: 48pt)
+|  +-------------------------------------------------------+  | Touch: 48pt
+|                                                             |
+|  Mật khẩu                                                   |
+|  +-------------------------------------------------------+  |
+|  | ••••••••••••••••••                              [ 👁️ ] |  | (h: 48pt)
+|  +-------------------------------------------------------+  | Touch: 48pt
+|                                                             |
+|  +-------------------------------------------------------+  |
+|  |                     ĐĂNG NHẬP                         |  | (h: 50pt)
+|  +-------------------------------------------------------+  | Touch: 50pt
+|                                                             |
+|  ------------------------- hoặc -------------------------  |
+|                                                             |
+|  +-------------------------------------------------------+  |
+|  |     [ G ]  Tiếp tục với tài khoản Google              |  | (h: 50pt)
+|  +-------------------------------------------------------+  | Touch: 50pt
+|                                                             |
+|            Chưa có tài khoản? [ Đăng ký tài khoản ]         | Touch: 44pt
+|                                                             |
++-------------------------------------------------------------+
+```
+
+---
+
+### 📱 Screen 3: Board Switcher & Board Management Modal (`Frame_03_BoardSwitcher`)
+> **Mục tiêu:** Phân chia ngữ cảnh cuộc sống nhưng **khóa trần tối đa 3-5 boards** để chống bẫy thiết kế rườm rà (*Tool Procrastination / Edge Case 07 trong PRD*).
+
+```text
++-------------------------------------------------------------+
+| ==================== [ GẠT XUỐNG ĐÓNG ] =================== |
+|                                                             |
+| Danh Sách Bảng Công Việc (3/5 Bảng đang dùng)               |
+| Chọn ngữ cảnh bạn muốn tập trung lúc này:                   |
+|                                                             |
+| +---------------------------------------------------------+ |
+| | 🎓  Học Tập & Nghiên Cứu                   [ Đang xem ] | | (h: 56pt)
+| |     4 việc cần làm  •  1 việc đang tập trung            | | Touch: 56pt
+| +---------------------------------------------------------+ |
+|                                                             |
+| +---------------------------------------------------------+ |
+| | 💼  Dự Án Khởi Nghiệp & Freelance                       | | (h: 56pt)
+| |     2 việc cần làm  •  0 việc đang làm                  | | Touch: 56pt
+| +---------------------------------------------------------+ |
+|                                                             |
+| +---------------------------------------------------------+ |
+| | 🏠  Đời Sống & Việc Nhà                                 | | (h: 56pt)
+| |     1 việc nhẹ nhàng                                    | | Touch: 56pt
+| +---------------------------------------------------------+ |
+|                                                             |
+| +---------------------------------------------------------+ |
+| |        +  Tạo Bảng Mới (Còn lại 2 slot)                 | | (h: 48pt)
+| +---------------------------------------------------------+ | Touch: 48pt
+|                                                             |
++-------------------------------------------------------------+
+```
+
+---
+
+
+*(Xem tiếp các màn hình 4-8 và UI States tại các commit tiếp theo)*
