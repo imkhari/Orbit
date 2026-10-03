@@ -1,0 +1,28 @@
+{
+  "taskId": "task-1",
+  "isFallback": false,
+  "reasoningSummary": "Thử thách này đã được gọt giũa thành 3 bước nhỏ dưới 20 phút. Hãy bắt đầu với bước 1 chỉ 5 phút để tạo đà nhẹ nhàng nhé!",
+  "subtasks": [
+    {
+      "stepOrder": 1,
+      "title": "Mở Canva/Slides và chọn mẫu slide màu tối giản dịu mắt",
+      "estimatedMinutes": 5,
+      "energyLevel": "LOW",
+      "isRecommendedStarter": true
+    },
+    {
+      "stepOrder": 2,
+      "title": "Gõ tiêu đề và 4 mục tiêu chính của đề tài vào các slide đầu",
+      "estimatedMinutes": 10,
+      "energyLevel": "MEDIUM",
+      "isRecommendedStarter": false
+    },
+    {
+      "stepOrder": 3,
+      "title": "Chèn 2 sơ đồ kiến trúc hệ thống và ghi chú 3 gạch đầu dòng",
+      "estimatedMinutes": 20,
+      "energyLevel": "HIGH",
+      "isRecommendedStarter": false
+    }
+  ]
+}
