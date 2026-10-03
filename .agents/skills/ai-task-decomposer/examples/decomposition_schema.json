@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TaskDecompositionResponse",
+  "description": "JSON Schema ràng buộc dữ liệu kết quả bẻ nhỏ nhiệm vụ cho người ADHD",
+  "type": "object",
+  "required": ["taskId", "isFallback", "subtasks"],
+  "properties": {
+    "taskId": {
+      "type": "string",
+      "description": "ID nhiệm vụ gốc cần phân rã"
+    },
+    "isFallback": {
+      "type": "boolean",
+      "description": "Cờ đánh dấu kết quả sinh từ Fallback Heuristic khi AI timeout"
+    },
+    "reasoningSummary": {
+      "type": "string",
+      "description": "Lời động viên nhận thức ngắn gọn giải thích cách tiếp cận nhẹ nhàng"
+    },
+    "subtasks": {
+      "type": "array",
+      "description": "Danh sách các vi bước hành động, tối thiểu 3 bước và tối đa 5 bước",
+      "minItems": 3,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["stepOrder", "title", "estimatedMinutes", "energyLevel"],
+        "properties": {
+          "stepOrder": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "Thứ tự tuần tự của bước thực hiện"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 255,
+            "description": "Mô tả hành động vi mô, bắt đầu bằng động từ cụ thể"
+          },
+          "estimatedMinutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "description": "Thời lượng ước tính (phút), bắt buộc <= 20 phút (Edge Case 12)"
+          },
+          "energyLevel": {
+            "type": "string",
+            "enum": ["LOW", "MEDIUM", "HIGH"],
+            "description": "Mức năng lượng nhận thức đòi hỏi cho bước này"
+          },
+          "isRecommendedStarter": {
+            "type": "boolean",
+            "description": "Đánh dấu bước mồi khởi động siêu dễ (thường là bước 1 <= 5 phút)"
+          }
+        }
+      }
+    }
+  }
+}
