@@ -35,7 +35,9 @@ All software engineering and product management artifacts are maintained in the 
 5. 🎨 [**05. UI/UX Design & Wireframes**](docs/design/02_WIREFRAMES_AND_PROTOTYPE.md): Complete Design System tokens, 8-screen ASCII Wireframes, UI Edge States, and Haptic/Animation specifications.
 6. 🌊 [**06. User Flows Specification**](docs/design/01_USER_FLOWS.md): Sequence diagrams and step-by-step cognitive interaction flows for ADHD users.
 7. 🔍 [**07. Design Review & Accessibility Audit**](docs/design/03_AI_DESIGN_REVIEW.md): WCAG 2.1 AA audit, contrast ratios, and ADHD cognitive ergonomics analysis.
-8. 🤖 [**08. Workspace Agent Blueprint**](.agents/AGENTS.md): Master workspace agent blueprint, roles matrix, architecture rules, and skills catalog.
+8. 🤖 [**08. Master Agent Blueprint**](AGENTS.md): Root master blueprint for AI coding agents, Karpathy guidelines, and `/goal` protocol.
+9. 📐 [**09. Code Standards & Layout**](docs/code-standards.md): Feature layout, Clean Architecture inward dependency rule, and coding invariants.
+10. 🗺️ [**10. Codebase Summary**](docs/codebase-summary.md): High-level system identity, reactive state boundaries, and API registry.
 
 ---
 
@@ -70,15 +72,20 @@ graph LR
 
 ```text
 orbit_project/
+├── AGENTS.md                       # Master Root Blueprint & Agent Protocol (/goal)
 ├── .gitignore                      # Git exclusion rules (Node, Java, macOS, IDEs)
 ├── README.md                       # Project overview and development guidelines
 ├── .agents/                         # Workspace Agentic AI Customization Module
-│   ├── AGENTS.md                   # Master Blueprint & Agent Operational Protocols
 │   ├── rules/                      # Always-on Architectural & Cognitive Rules
-│   │   └── backend_clean_architecture.md # Spring Boot 3 Clean Architecture & API Specs
+│   │   ├── backend_clean_architecture.md # Spring Boot 3 Clean Architecture & API Specs
+│   │   └── adhd_cognitive_ux_rules.md    # ADHD Cognitive UX & WCAG 2.1 AA Rules
 │   └── skills/                     # On-demand Agent Procedural Skills
-│       └── ai-task-decomposer/     # Gemini 1.5 Flash Task Decomposition Engine
+│       ├── ai-task-decomposer/     # Gemini 1.5 Flash Task Decomposition Engine
+│       ├── adhd-ui-evaluator/      # Automated WCAG 2.1 AA & Haptics Audit Skill
+│       └── orbit-feature-builder/  # Fullstack Autonomous Feature Implementation Skill
 ├── docs/                           # Software Engineering & Product Documentation
+│   ├── code-standards.md           # Clean Architecture & Coding Standards
+│   ├── codebase-summary.md         # System Identity & State Boundaries
 │   ├── prd/                        # Product Requirements & Analysis Module
 │   │   ├── 01_PROJECT_BRIEF.md     # Initial project scope and decision log
 │   │   ├── 02_PRD.md               # Full Product Requirements Document (Chapter 3 aligned)
