@@ -6,20 +6,19 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Task, TaskStatus, EnergyLevel, Subtask } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { QuickCaptureBar } from '../components/QuickCaptureBar';
 import { AIDecomposeModal } from '../components/AIDecomposeModal';
+import { NotificationToast } from '../components/NotificationToast';
 import {
   EnergyFilterWidget,
   EnergyFilterType,
 } from '../components/EnergyFilterWidget';
 
-// [Fix #1] All props are required — no internal mock data.
-// Single source of truth for tasks lives in App.tsx.
-// Previously this file duplicated ~130 lines of INITIAL_MOCK_TASKS
-// that was dead code when App.tsx passed the `tasks` prop.
 export interface BoardScreenProps {
   tasks: Task[];
   onMoveTask: (taskId: string, targetStatus: TaskStatus) => void;
@@ -40,6 +39,66 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   const [activeColumn, setActiveColumn] = useState<TaskStatus>('TODO');
   const [decomposingTask, setDecomposingTask] = useState<Task | null>(null);
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyFilterType>('ALL');
+
+  // Edge Case 02: Single-task WIP=1 enforcement state
+  const [rollbackTaskId, setRollbackTaskId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const [toastVisible, setToastVisible] = useState<boolean>(false);
+  const [toastType, setToastType] = useState<'info' | 'warning' | 'success'>('warning');
+
+  const currentDoingTask = useMemo(
+    () => tasks.find((t) => t.status === 'DOING'),
+    [tasks]
+  );
+
+  // Intercept task movement with WIP=1 Spring Physics & Haptics
+  const handleTaskMovement = (taskId: string, targetStatus: TaskStatus) => {
+    // Scenario A: User tries to move a 2nd task into DOING
+    if (targetStatus === 'DOING') {
+      const activeDoingTask = tasks.find(
+        (t) => t.status === 'DOING' && t.id !== taskId
+      );
+
+      if (activeDoingTask) {
+        // 1. Rung cảnh báo nhẹ (Warning soft buzz < 50ms)
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
+
+        // 2. Kích hoạt hiệu ứng lò xo bật ngược thẻ việc về vị trí cũ (Spring Physics Rollback)
+        setRollbackTaskId(taskId);
+        setTimeout(() => setRollbackTaskId(null), 800);
+
+        // 3. Hiển thị thông báo dịu dàng không phán xét (Edge Case 02, Toast 3.5s)
+        setToastType('warning');
+        setToastMessage(
+          `🎯 ĐƠN NHIỆM LÀ SIÊU NĂNG LỰC CỦA BẠN!\nBạn đang làm "${activeDoingTask.title}". Hãy hoàn thành dứt điểm hoặc đưa về Cần làm trước nhé!`
+        );
+        setToastVisible(true);
+        return; // Chặn hành động
+      }
+    }
+
+    // Scenario B: User completes a task (Moves to DONE)
+    if (targetStatus === 'DONE') {
+      // Rung 3 nhịp êm (Success < 80ms) kích hoạt cảm giác hoàn tất chu trình
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      setToastType('success');
+      setToastMessage('🎉 Tuyệt vời! Bạn vừa hoàn thành một nhiệm vụ.');
+      setToastVisible(true);
+    }
+
+    // Scenario C: Moving between backlog / todo
+    if (targetStatus === 'TODO') {
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+
+    onMoveTask(taskId, targetStatus);
+  };
 
   // Quick Capture wraps parent callback and switches to BACKLOG column
   const handleQuickAdd = (title: string, energy: EnergyLevel) => {
@@ -79,9 +138,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
     },
   ];
 
-  // [Fix #7] Inline columnTasks filter into the useMemo so that
-  // the memo depends on stable references (tasks, activeColumn, selectedEnergy)
-  // instead of a freshly-allocated `columnTasks` array each render.
+  // Dynamic Re-ranking & Dimming based on Energy Filter
   const displayedTasks = useMemo(() => {
     const columnTasks = tasks.filter((t) => t.status === activeColumn);
 
@@ -89,9 +146,6 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
       return columnTasks.map((t) => ({ task: t, isDimmed: false }));
     }
 
-    // Dynamic Re-ranking & Dimming based on Energy Filter
-    // When '☕ Thấp' is selected, low energy tasks are elevated to top with full opacity,
-    // while high/medium energy tasks are demoted and visually dimmed (opacity ~ 0.38).
     const matched = columnTasks.filter((t) => t.energyRequired === selectedEnergy);
     const unmatched = columnTasks.filter((t) => t.energyRequired !== selectedEnergy);
 
@@ -103,6 +157,15 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Floating Empathetic Toast Notification */}
+      <NotificationToast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onDismiss={() => setToastVisible(false)}
+        durationMs={3500}
+      />
+
       {/* App Header */}
       <View style={styles.header}>
         <View>
@@ -126,9 +189,14 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
       {/* Energy Filter & Streak Shield Widget */}
       <EnergyFilterWidget
         selectedEnergy={selectedEnergy}
-        onSelectEnergy={setSelectedEnergy}
+        onSelectEnergy={(energy) => {
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }
+          setSelectedEnergy(energy);
+        }}
         streakDays={5}
-        freezeCount={1}
+        freezeCount={2}
       />
 
       {/* Column Tabs */}
@@ -139,7 +207,12 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
             <TouchableOpacity
               key={col.status}
               style={[styles.columnTab, isActive && styles.columnTabActive]}
-              onPress={() => setActiveColumn(col.status)}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                setActiveColumn(col.status);
+              }}
               activeOpacity={0.7}
             >
               <Text
@@ -191,10 +264,26 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
 
         {displayedTasks.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>☕</Text>
-            <Text style={styles.emptyTitle}>Chưa có công việc nào ở cột này</Text>
+            <Text style={styles.emptyIcon}>
+              {activeColumn === 'DOING'
+                ? '🎯'
+                : activeColumn === 'DONE'
+                ? '✨'
+                : '☕'}
+            </Text>
+            <Text style={styles.emptyTitle}>
+              {activeColumn === 'DOING'
+                ? 'Chưa có việc nào đang làm'
+                : activeColumn === 'DONE'
+                ? 'Chưa có việc nào hoàn thành hôm nay'
+                : 'Đầu óc bạn đang thảnh thơi!'}
+            </Text>
             <Text style={styles.emptySubtitle}>
-              Thêm nhanh một việc ở thanh dưới đáy để bắt đầu nhẹ nhàng nhé!
+              {activeColumn === 'DOING'
+                ? 'Hãy chọn 1 việc vừa sức nhất trong cột "Cần làm" để bắt đầu nhẹ nhàng nhé!'
+                : activeColumn === 'DONE'
+                ? 'Mỗi bước nhỏ đều đưa bạn đến gần đích hơn.'
+                : 'Nếu có ý nghĩ nào nảy ra, hãy thêm nhanh ở thanh dưới đáy. Orbit sẽ giữ hộ bạn.'}
             </Text>
           </View>
         ) : (
@@ -202,10 +291,11 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
             <TaskCard
               key={task.id}
               task={task}
-              onMoveTask={onMoveTask}
+              onMoveTask={handleTaskMovement}
               onOpenAIDecompose={(t) => setDecomposingTask(t)}
               onFocusTask={handleFocusTaskAction}
               isDimmed={isDimmed}
+              triggerRollback={rollbackTaskId === task.id}
             />
           ))
         )}
@@ -258,6 +348,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#38BDF8',
+    minHeight: 44, // WCAG Touch-target >= 44x44 pt
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   focusHeaderBtnText: {
     color: '#FFFFFF',
@@ -283,7 +376,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderWidth: 1,
     borderColor: 'transparent',
-    minHeight: 40,
+    minHeight: 44, // WCAG Touch-target >= 44x44 pt
   },
   columnTabActive: {
     backgroundColor: 'rgba(56, 189, 248, 0.15)',

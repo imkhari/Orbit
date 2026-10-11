@@ -56,7 +56,10 @@ export const EnergyFilterWidget: React.FC<EnergyFilterWidgetProps> = ({
         <View style={styles.filterHeader}>
           <Text style={styles.filterSectionTitle}>Năng lượng nhận thức hiện tại:</Text>
           {selectedEnergy !== 'ALL' && (
-            <TouchableOpacity onPress={() => onSelectEnergy('ALL')}>
+            <TouchableOpacity
+              onPress={() => onSelectEnergy('ALL')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Text style={styles.resetFilterText}>Xóa lọc</Text>
             </TouchableOpacity>
           )}

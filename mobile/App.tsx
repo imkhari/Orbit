@@ -7,7 +7,9 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { BoardScreen } from './src/screens/BoardScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
 import { Task, TaskStatus, EnergyLevel, Subtask } from './src/types';
@@ -131,6 +133,9 @@ export default function App() {
         (t) => t.status === 'DOING' && t.id !== taskId
       );
       if (currentDoingTasks.length >= 1) {
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        }
         Alert.alert(
           '🎯 Giới hạn đơn nhiệm (WIP Limit: 1/1)',
           'Bộ não người ADHD hoạt động tốt nhất khi tập trung vào duy nhất một việc. Hãy hoàn thành hoặc đưa việc hiện tại về Todo trước nhé!',

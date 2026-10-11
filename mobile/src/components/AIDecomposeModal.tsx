@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Task, EnergyLevel, Subtask } from '../types';
 
 interface ProposedStep {
@@ -38,7 +40,7 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
   useEffect(() => {
     if (!task) return;
 
-    // Intelligent default proposals based on task title
+    // Intelligent default proposals based on task title (<20m per step, step 1 < 5m)
     const mockAIProposals: ProposedStep[] = [
       {
         id: 'step-1',
@@ -78,6 +80,9 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
   }, [task]);
 
   const toggleSelect = (id: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     setSteps((prev) =>
       prev.map((step) =>
         step.id === id ? { ...step, isSelected: !step.isSelected } : step
@@ -95,6 +100,11 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
     if (!task) return;
     const selected = steps.filter((s) => s.isSelected);
     if (selected.length === 0) return;
+
+    // Haptic feedback: Medium impact gives feeling of micro-accomplishment
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
 
     const formattedSubtasks: Subtask[] = selected.map((s, idx) => ({
       id: `subtask-${Date.now()}-${idx}`,
@@ -151,7 +161,7 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
                   !step.isSelected && styles.stepRowDeselected,
                 ]}
               >
-                {/* Checkbox */}
+                {/* Checkbox with hitSlop to ensure >= 44x44pt bounding box */}
                 <TouchableOpacity
                   style={[
                     styles.checkbox,
@@ -159,6 +169,7 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
                   ]}
                   onPress={() => toggleSelect(step.id)}
                   activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   {step.isSelected ? (
                     <Text style={styles.checkmark}>✓</Text>
@@ -200,7 +211,7 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
             </Text>
           </View>
 
-          {/* Action buttons */}
+          {/* Action buttons with minHeight >= 48pt */}
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={styles.cancelBtn}
@@ -322,6 +333,7 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
     paddingVertical: 2,
     marginBottom: 4,
+    minHeight: 28,
   },
   stepInputDeselected: {
     textDecorationLine: 'line-through',
@@ -364,9 +376,10 @@ const styles = StyleSheet.create({
   cancelBtn: {
     flex: 1,
     backgroundColor: '#334155',
-    paddingVertical: 14,
+    minHeight: 48, // WCAG 2.1 AA touch-target >= 44x44 pt
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelBtnText: {
     color: '#CBD5E1',
@@ -376,9 +389,10 @@ const styles = StyleSheet.create({
   confirmBtn: {
     flex: 2,
     backgroundColor: '#38BDF8',
-    paddingVertical: 14,
+    minHeight: 48, // WCAG 2.1 AA touch-target >= 44x44 pt
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   confirmBtnDisabled: {
     backgroundColor: '#475569',

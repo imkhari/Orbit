@@ -1,5 +1,11 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Animated,
+} from 'react-native';
 import { Task, EnergyLevel, TaskStatus } from '../types';
 
 interface TaskCardProps {
@@ -9,6 +15,7 @@ interface TaskCardProps {
   onFocusTask?: (task: Task) => void;
   onToggleSubtask?: (taskId: string, subtaskId: string) => void;
   isDimmed?: boolean;
+  triggerRollback?: boolean;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
@@ -17,17 +24,50 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onOpenAIDecompose,
   onFocusTask,
   isDimmed = false,
+  triggerRollback = false,
 }) => {
-  // Energy styling helper
+  // Spring rollback animation for Edge Case 02 (WIP limit violation)
+  const translateX = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (triggerRollback) {
+      // Spring rollback physics adhering to specs: { damping: 15, stiffness: 120, mass: 1 }
+      Animated.sequence([
+        Animated.spring(translateX, {
+          toValue: -16,
+          damping: 15,
+          stiffness: 120,
+          mass: 1,
+          useNativeDriver: true,
+        }),
+        Animated.spring(translateX, {
+          toValue: 10,
+          damping: 15,
+          stiffness: 120,
+          mass: 1,
+          useNativeDriver: true,
+        }),
+        Animated.spring(translateX, {
+          toValue: 0,
+          damping: 15,
+          stiffness: 120,
+          mass: 1,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [triggerRollback]);
+
+  // Energy styling helper (strictly no panic red #FF0000; uses Soft Coral #F87171)
   const getEnergyBadge = (level: EnergyLevel) => {
     switch (level) {
       case 'LOW':
-        return { label: '☕ Low', color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.15)' };
+        return { label: '☕ Thấp', color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.15)' };
       case 'HIGH':
-        return { label: '🔥 High', color: '#F87171', bg: 'rgba(248, 113, 113, 0.15)' };
+        return { label: '🔥 Cao', color: '#F87171', bg: 'rgba(248, 113, 113, 0.15)' };
       case 'MEDIUM':
       default:
-        return { label: '⚡ Med', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.15)' };
+        return { label: '⚡ Vừa', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.15)' };
     }
   };
 
@@ -45,7 +85,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onPress={() => onMoveTask(task.id, 'TODO')}
             activeOpacity={0.7}
           >
-            <Text style={styles.nextBtnText}>To Todo →</Text>
+            <Text style={styles.nextBtnText}>Cần làm →</Text>
           </TouchableOpacity>
         );
       case 'TODO':
@@ -55,7 +95,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onPress={() => onMoveTask(task.id, 'DOING')}
             activeOpacity={0.7}
           >
-            <Text style={styles.focusBtnText}>Start (Doing) 🎯</Text>
+            <Text style={styles.focusBtnText}>Bắt đầu (Doing) 🎯</Text>
           </TouchableOpacity>
         );
       case 'DOING':
@@ -86,18 +126,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onPress={() => onMoveTask(task.id, 'TODO')}
             activeOpacity={0.7}
           >
-            <Text style={styles.reopenBtnText}>Reopen ↺</Text>
+            <Text style={styles.reopenBtnText}>Làm lại ↺</Text>
           </TouchableOpacity>
         );
     }
   };
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.card,
         task.status === 'DOING' && styles.doingCardHighlight,
         isDimmed && styles.cardDimmed,
+        { transform: [{ translateX }] },
       ]}
     >
       {/* Header: Title & Energy Badge */}
@@ -128,7 +169,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         {totalSubtasks > 0 ? (
           <View style={styles.metaBadge}>
             <Text style={styles.metaText}>
-              📋 {completedSubtasks}/{totalSubtasks} steps
+              📋 {completedSubtasks}/{totalSubtasks} bước
             </Text>
           </View>
         ) : null}
@@ -141,12 +182,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           onPress={() => onOpenAIDecompose(task)}
           activeOpacity={0.7}
         >
-          <Text style={styles.aiButtonText}>✨ AI Breakdown</Text>
+          <Text style={styles.aiButtonText}>✨ AI Bẻ việc</Text>
         </TouchableOpacity>
 
         <View style={styles.statusActionWrapper}>{renderStatusAction()}</View>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -232,7 +273,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.3)',
-    minHeight: 38,
+    minHeight: 44, // WCAG 2.1 AA touch-target >= 44x44 pt
     justifyContent: 'center',
   },
   aiButtonText: {
@@ -244,10 +285,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   actionBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    minHeight: 38,
+    minHeight: 44, // WCAG 2.1 AA touch-target >= 44x44 pt
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -291,7 +332,7 @@ const styles = StyleSheet.create({
   doingActionsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8, // Minimum 8px spacing
   },
   focusNowBtn: {
     backgroundColor: '#0284C7',
@@ -304,4 +345,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

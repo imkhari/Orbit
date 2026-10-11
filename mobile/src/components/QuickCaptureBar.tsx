@@ -6,7 +6,9 @@ import {
   TextInput,
   TouchableOpacity,
   Keyboard,
+  Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { EnergyLevel } from '../types';
 
 interface QuickCaptureBarProps {
@@ -17,9 +19,22 @@ export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) =
   const [title, setTitle] = useState('');
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyLevel>('MEDIUM');
 
+  const handleSelectEnergy = (level: EnergyLevel) => {
+    setSelectedEnergy(level);
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
   const handleSend = () => {
     const trimmed = title.trim();
     if (!trimmed) return;
+
+    // Haptics: Light impact (<50ms) confirms capture instantly to soothe working memory decay
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
     onAddTask(trimmed, selectedEnergy);
     setTitle('');
     Keyboard.dismiss();
@@ -29,16 +44,16 @@ export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) =
     <View style={styles.container}>
       {/* Energy Quick Selector Pills */}
       <View style={styles.energySelectorRow}>
-        <Text style={styles.selectorHint}>Energy:</Text>
+        <Text style={styles.selectorHint}>Năng lượng:</Text>
         <TouchableOpacity
           style={[
             styles.energyOption,
             selectedEnergy === 'LOW' && styles.energySelectedLow,
           ]}
-          onPress={() => setSelectedEnergy('LOW')}
+          onPress={() => handleSelectEnergy('LOW')}
           activeOpacity={0.7}
         >
-          <Text style={styles.energyOptionText}>☕ Low</Text>
+          <Text style={styles.energyOptionText}>☕ Thấp</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -46,10 +61,10 @@ export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) =
             styles.energyOption,
             selectedEnergy === 'MEDIUM' && styles.energySelectedMed,
           ]}
-          onPress={() => setSelectedEnergy('MEDIUM')}
+          onPress={() => handleSelectEnergy('MEDIUM')}
           activeOpacity={0.7}
         >
-          <Text style={styles.energyOptionText}>⚡ Med</Text>
+          <Text style={styles.energyOptionText}>⚡ Vừa</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -57,10 +72,10 @@ export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) =
             styles.energyOption,
             selectedEnergy === 'HIGH' && styles.energySelectedHigh,
           ]}
-          onPress={() => setSelectedEnergy('HIGH')}
+          onPress={() => handleSelectEnergy('HIGH')}
           activeOpacity={0.7}
         >
-          <Text style={styles.energyOptionText}>🔥 High</Text>
+          <Text style={styles.energyOptionText}>🔥 Cao</Text>
         </TouchableOpacity>
       </View>
 
@@ -105,22 +120,26 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   selectorHint: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#94A3B8',
     fontWeight: '600',
     marginRight: 2,
   },
   energyOption: {
     backgroundColor: '#0F172A',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#334155',
+    minHeight: 44, // WCAG 2.1 AA touch-target >= 44x44 pt
+    minWidth: 64,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   energyOptionText: {
-    fontSize: 11,
-    color: '#94A3B8',
+    fontSize: 12,
+    color: '#CBD5E1',
     fontWeight: '600',
   },
   energySelectedLow: {
@@ -133,7 +152,7 @@ const styles = StyleSheet.create({
   },
   energySelectedHigh: {
     backgroundColor: 'rgba(248, 113, 113, 0.25)',
-    borderColor: '#F87171',
+    borderColor: '#F87171', // Soft Coral - strictly prohibited panic red #FF0000
   },
   inputRow: {
     flexDirection: 'row',
@@ -150,13 +169,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
     marginRight: 10,
-    minHeight: 44,
+    minHeight: 44, // WCAG 2.1 AA touch-target
   },
   addButton: {
     backgroundColor: '#38BDF8',
     borderRadius: 10,
     paddingHorizontal: 16,
-    minHeight: 44,
+    minHeight: 44, // WCAG 2.1 AA touch-target
     justifyContent: 'center',
     alignItems: 'center',
   },

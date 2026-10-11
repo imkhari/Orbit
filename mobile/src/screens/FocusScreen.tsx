@@ -7,7 +7,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Task, Subtask } from '../types';
 import { FocusTimer } from '../components/FocusTimer';
 
@@ -60,6 +62,11 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
   const handleFinishTask = () => {
     if (isSubmitting) return; // Prevent double-tap
     setIsSubmitting(true);
+
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+
     Alert.alert(
       '🎉 Xuất sắc!',
       `Bạn đã hoàn thành công việc "${doingTask.title}". Dopamine dâng trào, hãy nghỉ ngơi một chút trước khi nhận việc tiếp theo!`,
@@ -162,7 +169,12 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
                       styles.subtaskItem,
                       sub.isCompleted && styles.subtaskItemCompleted,
                     ]}
-                    onPress={() => onToggleSubtask(doingTask.id, sub.id)}
+                    onPress={() => {
+                      if (Platform.OS !== 'web') {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      }
+                      onToggleSubtask(doingTask.id, sub.id);
+                    }}
                     activeOpacity={0.7}
                   >
                     <View

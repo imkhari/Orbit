@@ -7,6 +7,7 @@ import {
   Vibration,
   Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
 interface FocusTimerProps {
   initialMinutes?: number;
@@ -26,9 +27,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // [Fix #2] Store latest callbacks in refs to avoid stale closures
-  // When parent re-renders and creates new arrow functions, the refs
-  // always point to the latest version without restarting the interval.
+  // Store latest callbacks in refs to avoid stale closures
   const onCompleteRef = useRef(onComplete);
   const onSessionTickRef = useRef(onSessionTick);
   useEffect(() => {
@@ -38,9 +37,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
     onSessionTickRef.current = onSessionTick;
   }, [onSessionTick]);
 
-  // [Fix #4] Sync state if initialMinutes changes and timer hasn't started.
-  // Intentionally only reacts to initialMinutes changes — isActive, secondsLeft,
-  // and totalSeconds are read but not dependencies we want to trigger on.
+  // Sync state if initialMinutes changes and timer hasn't started.
   useEffect(() => {
     if (!isActive && secondsLeft === totalSeconds) {
       setSecondsLeft(initialMinutes * 60);
@@ -48,27 +45,26 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMinutes]);
 
-  // [Fix #3] Watch for timer reaching zero and trigger completion side-effects
-  // outside of the setSecondsLeft updater (which must remain a pure function).
+  // Watch for timer reaching zero and trigger completion side-effects
   useEffect(() => {
     if (secondsLeft === 0 && isActive) {
       if (timerRef.current) clearInterval(timerRef.current);
       setIsActive(false);
       setHasCompleted(true);
       if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Vibration.vibrate([0, 500, 200, 500]);
       }
       onCompleteRef.current?.();
     }
   }, [secondsLeft, isActive]);
 
-  // [Fix #2] Tick interval — depends only on isActive, reads callbacks via refs
+  // Tick interval — depends only on isActive, reads callbacks via refs
   useEffect(() => {
     if (isActive) {
       timerRef.current = setInterval(() => {
         setSecondsLeft((prev) => {
           if (prev <= 1) {
-            // Return 0, completion side-effects handled by the watcher above
             return 0;
           }
           const nextVal = prev - 1;
@@ -86,6 +82,9 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
   }, [isActive]);
 
   const handleToggle = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     if (secondsLeft === 0) {
       setSecondsLeft(totalSeconds);
       setHasCompleted(false);
@@ -94,6 +93,9 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
   };
 
   const handleReset = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     if (timerRef.current) clearInterval(timerRef.current);
     setIsActive(false);
     setSecondsLeft(totalSeconds);
