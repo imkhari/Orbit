@@ -1,0 +1,145 @@
+### ==============================================================================
+### ORBIT BACKEND TASK MANAGEMENT API TEST SUITE
+### Base URL: http://localhost:8080
+### ==============================================================================
+
+@baseUrl = http://localhost:8080/api/v1
+
+### 1. Kiểm tra trạng thái hệ thống (Health Check)
+GET {{baseUrl}}/health
+Accept: application/json
+
+###
+# Curl tương đương:
+# curl -X GET http://localhost:8080/api/v1/health
+
+### ------------------------------------------------------------------------------
+### 2. Quick Capture Task 1 vào Backlog (Mức năng lượng: MEDIUM)
+# @name createTask1
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Soạn thảo 5 slide đầu cho bài tập lớn AI",
+  "description": "Tập trung vào phần giới thiệu và bài toán giải quyết",
+  "energyRequired": "MEDIUM",
+  "estimatedMinutes": 25,
+  "urgency": "HIGH"
+}
+
+###
+# Curl tương đương:
+# curl -X POST http://localhost:8080/api/v1/tasks \
+#   -H "Content-Type: application/json" \
+#   -d '{"title": "Soạn thảo 5 slide đầu cho bài tập lớn AI", "energyRequired": "MEDIUM", "estimatedMinutes": 25}'
+
+### ------------------------------------------------------------------------------
+### 3. Quick Capture Task 2 vào Backlog (Mức năng lượng: LOW)
+# @name createTask2
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Đọc 3 trang tài liệu WCAG 2.1 cho ADHD",
+  "description": "Nghiên cứu về tỷ lệ tương phản và kích thước nút bấm",
+  "energyRequired": "LOW",
+  "estimatedMinutes": 15,
+  "urgency": "MEDIUM"
+}
+
+###
+# Curl tương đương:
+# curl -X POST http://localhost:8080/api/v1/tasks \
+#   -H "Content-Type: application/json" \
+#   -d '{"title": "Đọc 3 trang tài liệu WCAG 2.1 cho ADHD", "energyRequired": "LOW", "estimatedMinutes": 15}'
+
+### ------------------------------------------------------------------------------
+### 4. Lấy danh sách toàn bộ nhiệm vụ
+GET {{baseUrl}}/tasks
+Accept: application/json
+
+###
+# Curl tương đương:
+# curl -X GET http://localhost:8080/api/v1/tasks
+
+### ------------------------------------------------------------------------------
+### 5. Chuyển Task 1 sang trạng thái DOING (Hợp lệ: WIP = 1/1)
+### Lưu ý: Thay {{taskId1}} bằng ID thực tế nhận được từ bước 2
+@taskId1 = {{createTask1.response.body.data.id}}
+
+PATCH {{baseUrl}}/tasks/{{taskId1}}/status
+Content-Type: application/json
+
+{
+  "status": "DOING"
+}
+
+###
+# Curl tương đương:
+# curl -X PATCH http://localhost:8080/api/v1/tasks/<TASK_ID_1>/status \
+#   -H "Content-Type: application/json" \
+#   -d '{"status": "DOING"}'
+
+### ------------------------------------------------------------------------------
+### 6. Cố tình chuyển Task 2 sang DOING khi Task 1 đang làm
+### Kỳ vọng: HTTP 409 Conflict với thông điệp nhẹ nhàng bảo vệ đơn nhiệm!
+@taskId2 = {{createTask2.response.body.data.id}}
+
+PATCH {{baseUrl}}/tasks/{{taskId2}}/status
+Content-Type: application/json
+
+{
+  "status": "DOING"
+}
+
+###
+# Curl tương đương:
+# curl -X PATCH http://localhost:8080/api/v1/tasks/<TASK_ID_2>/status \
+#   -H "Content-Type: application/json" \
+#   -d '{"status": "DOING"}'
+
+### ------------------------------------------------------------------------------
+### 7. Hoàn thành Task 1 (Chuyển sang DONE)
+PATCH {{baseUrl}}/tasks/{{taskId1}}/status
+Content-Type: application/json
+
+{
+  "status": "DONE"
+}
+
+###
+# Curl tương đương:
+# curl -X PATCH http://localhost:8080/api/v1/tasks/<TASK_ID_1>/status \
+#   -H "Content-Type: application/json" \
+#   -d '{"status": "DONE"}'
+
+### ------------------------------------------------------------------------------
+### 8. Bây giờ chuyển Task 2 sang DOING (Hợp lệ vì Task 1 đã DONE!)
+PATCH {{baseUrl}}/tasks/{{taskId2}}/status
+Content-Type: application/json
+
+{
+  "status": "DOING"
+}
+
+###
+# Curl tương đương:
+# curl -X PATCH http://localhost:8080/api/v1/tasks/<TASK_ID_2>/status \
+#   -H "Content-Type: application/json" \
+#   -d '{"status": "DOING"}'
+
+### ------------------------------------------------------------------------------
+### 9. Test Validation Error khi tiêu đề để trống (Kỳ vọng: HTTP 400 Bad Request)
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+
+{
+  "title": "",
+  "energyRequired": "HIGH"
+}
+
+###
+# Curl tương đương:
+# curl -X POST http://localhost:8080/api/v1/tasks \
+#   -H "Content-Type: application/json" \
+#   -d '{"title": ""}'
