@@ -86,6 +86,8 @@ Custom workspace procedures reside in `.agents/`:
 | [`.agents/skills/ai-task-decomposer/SKILL.md`](.agents/skills/ai-task-decomposer/SKILL.md) | On-Demand Skill | Gemini 1.5 Flash task breakdown, <20m constraint, JSON schema & heuristic fallback. |
 | [`.agents/skills/adhd-ui-evaluator/SKILL.md`](.agents/skills/adhd-ui-evaluator/SKILL.md) | On-Demand Skill | 4-step WCAG 2.1 AA audit, contrast checker, haptics latency & UI edge state testing. |
 | [`.agents/skills/orbit-feature-builder/SKILL.md`](.agents/skills/orbit-feature-builder/SKILL.md) | On-Demand Skill | Autonomous end-to-end feature pipeline across Spring Boot and React Native. |
+| [`.agents/skills/open-code-review/SKILL.md`](.agents/skills/open-code-review/SKILL.md) | On-Demand Skill | AI-powered code review on Git changes using Alibaba OCR CLI (`ocr review` / `ocr delegate`). |
+| [`.agents/skills/code-review-skill/SKILL.md`](.agents/skills/code-review-skill/SKILL.md) | On-Demand Skill | Comprehensive multi-ecosystem PR code review guidelines, architecture, security & performance audits. |
 
 ---
 

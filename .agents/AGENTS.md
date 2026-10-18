@@ -78,10 +78,18 @@ Hệ thống thư mục `.agents/` được phân bổ minh bạch cho 2 thành 
     │   └── examples/
     │       ├── decomposition_schema.json    # JSON Schema chuẩn cho output subtasks
     │       └── sample_decomposition.json    # Dữ liệu mẫu kết quả bẻ việc
-    └── adhd-ui-evaluator/                   # [Người 2] Quy trình kiểm thử & chấm điểm UI/UX WCAG 2.1 AA
-        ├── SKILL.md                         # Hướng dẫn audit tương phản, haptics, spring physics
-        └── examples/
-            └── wcag_audit_checklist.json    # Bảng kiểm tra trợ năng định lượng
+    ├── adhd-ui-evaluator/                   # [Người 2] Quy trình kiểm thử & chấm điểm UI/UX WCAG 2.1 AA
+    │   ├── SKILL.md                         # Hướng dẫn audit tương phản, haptics, spring physics
+    │   └── examples/
+    │       └── wcag_audit_checklist.json    # Bảng kiểm tra trợ năng định lượng
+    ├── orbit-feature-builder/               # [Chung] Pipeline tự động hóa tính năng fullstack
+    │   └── SKILL.md
+    ├── open-code-review/                    # [Chung] Alibaba Open Code Review CLI (ocr review / delegate)
+    │   └── SKILL.md
+    └── code-review-skill/                   # [Chung] Bộ hướng dẫn & checklists review code đa ngôn ngữ
+        ├── SKILL.md
+        ├── reference/                       # Tài liệu chuyên sâu (Java, TS, React, Security,...)
+        └── scripts/                         # Scripts hỗ trợ phân tích PR
 ```
 
 ### Bảng Phân Quyền Chi Tiết
