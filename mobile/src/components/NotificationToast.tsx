@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -22,13 +22,52 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
   onDismiss,
   durationMs = 3500,
 }) => {
-  // Spring animation value for smooth entry from top (-100 to 0)
+  // Internal state to keep component mounted during slide-up exit animation
+  const [shouldRender, setShouldRender] = useState<boolean>(visible);
   const translateY = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isDismissingRef = useRef<boolean>(false);
+
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
+  const handleDismiss = () => {
+    if (isDismissingRef.current) return;
+    isDismissingRef.current = true;
+
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    Animated.parallel([
+      Animated.spring(translateY, {
+        toValue: -120,
+        damping: 15,
+        stiffness: 120,
+        mass: 1,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      isDismissingRef.current = false;
+      setShouldRender(false);
+      onDismissRef.current();
+    });
+  };
 
   useEffect(() => {
     if (visible) {
+      isDismissingRef.current = false;
+      setShouldRender(true);
+
       // Spring entrance conforming to AGENTS.md / 02_WIREFRAMES_AND_PROTOTYPE.md specs:
       // { damping: 15, stiffness: 120, mass: 1 }
       Animated.parallel([
@@ -50,35 +89,16 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
       timerRef.current = setTimeout(() => {
         handleDismiss();
       }, durationMs);
-    } else {
+    } else if (shouldRender && !isDismissingRef.current) {
       handleDismiss();
     }
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [visible, message]);
+  }, [visible, message, durationMs]);
 
-  const handleDismiss = () => {
-    Animated.parallel([
-      Animated.spring(translateY, {
-        toValue: -120,
-        damping: 15,
-        stiffness: 120,
-        mass: 1,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onDismiss();
-    });
-  };
-
-  if (!visible) return null;
+  if (!shouldRender) return null;
 
   const getBorderColor = () => {
     switch (type) {

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Task, AIDecomposeResponse, EnergyLevel } from '../types';
+import { Task, AIDecomposeResponse, EnergyLevel, Subtask } from '../types';
 
 // Default to localhost for local testing (use 10.0.2.2 for Android emulator)
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
@@ -29,7 +29,7 @@ export const TaskService = {
   },
 
   // Apply subtasks sau khi người dùng đã duyệt
-  applySubtasks: async (taskId: string, subtasks: any[]): Promise<Task> => {
+  applySubtasks: async (taskId: string, subtasks: Subtask[]): Promise<Task> => {
     const response = await apiClient.post<Task>(`/tasks/${taskId}/subtasks/bulk`, { subtasks });
     return response.data;
   },

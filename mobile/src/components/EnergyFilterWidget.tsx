@@ -138,18 +138,18 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   freezeBadge: {
-    backgroundColor: 'rgba(14, 165, 233, 0.12)',
+    backgroundColor: 'rgba(129, 140, 248, 0.12)',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderColor: 'rgba(129, 140, 248, 0.3)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   freezeBadgeText: {
-    color: '#38BDF8',
+    color: '#818CF8', // Gentle Streak Freeze Shield token
     fontSize: 11,
     fontWeight: '700',
   },

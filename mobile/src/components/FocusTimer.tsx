@@ -59,18 +59,11 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
     }
   }, [secondsLeft, isActive]);
 
-  // Tick interval — depends only on isActive, reads callbacks via refs
+  // Tick interval — pure updater function inside setSecondsLeft
   useEffect(() => {
     if (isActive) {
       timerRef.current = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            return 0;
-          }
-          const nextVal = prev - 1;
-          onSessionTickRef.current?.(nextVal);
-          return nextVal;
-        });
+        setSecondsLeft((prev) => (prev <= 1 ? 0 : prev - 1));
       }, 1000);
     } else if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -80,6 +73,15 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isActive]);
+
+  // Handle onSessionTick callback safely outside the state updater function
+  const prevSecondsRef = useRef(secondsLeft);
+  useEffect(() => {
+    if (isActive && prevSecondsRef.current !== secondsLeft && secondsLeft > 0) {
+      onSessionTickRef.current?.(secondsLeft);
+    }
+    prevSecondsRef.current = secondsLeft;
+  }, [secondsLeft, isActive]);
 
   const handleToggle = () => {
     if (Platform.OS !== 'web') {

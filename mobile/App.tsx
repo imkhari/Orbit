@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Alert,
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { BoardScreen } from './src/screens/BoardScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
+import { NotificationToast } from './src/components/NotificationToast';
 import { Task, TaskStatus, EnergyLevel, Subtask } from './src/types';
 
 const INITIAL_TASKS: Task[] = [
@@ -123,11 +123,17 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'BOARD' | 'FOCUS'>('BOARD');
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
 
+  // Empathetic Toast Notification state for WIP=1 and system notices
+  const [toastVisible, setToastVisible] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const [toastType, setToastType] = useState<'info' | 'warning' | 'success'>('warning');
+
   // Active task in DOING
   const doingTask = tasks.find((t) => t.status === 'DOING') || null;
 
   // Move task with strict WIP limit enforcement (Max 1 in DOING)
-  const handleMoveTask = (taskId: string, targetStatus: TaskStatus) => {
+  // Returns true if move succeeded, false if blocked by WIP limit
+  const handleMoveTask = (taskId: string, targetStatus: TaskStatus): boolean => {
     if (targetStatus === 'DOING') {
       const currentDoingTasks = tasks.filter(
         (t) => t.status === 'DOING' && t.id !== taskId
@@ -136,18 +142,19 @@ export default function App() {
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
-        Alert.alert(
-          '🎯 Giới hạn đơn nhiệm (WIP Limit: 1/1)',
-          'Bộ não người ADHD hoạt động tốt nhất khi tập trung vào duy nhất một việc. Hãy hoàn thành hoặc đưa việc hiện tại về Todo trước nhé!',
-          [{ text: 'Đã hiểu' }]
+        setToastType('warning');
+        setToastMessage(
+          `🎯 ĐƠN NHIỆM LÀ SIÊU NĂNG LỰC CỦA BẠN!\nBạn đang làm "${currentDoingTasks[0].title}". Hãy hoàn thành hoặc đưa việc hiện tại về Cần làm trước nhé!`
         );
-        return;
+        setToastVisible(true);
+        return false;
       }
     }
 
     setTasks((prev) =>
       prev.map((t) => (t.id === taskId ? { ...t, status: targetStatus } : t))
     );
+    return true;
   };
 
   // Add task via Quick Capture bar
@@ -217,6 +224,15 @@ export default function App() {
     <View style={styles.appRoot}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
+      {/* Floating Empathetic Toast Notification for WIP=1 and System notices */}
+      <NotificationToast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onDismiss={() => setToastVisible(false)}
+        durationMs={3500}
+      />
+
       {/* Screen Presentation */}
       <View style={styles.screenContainer}>
         {currentScreen === 'BOARD' ? (
@@ -229,7 +245,10 @@ export default function App() {
             onFocusTask={(task) => {
               // Ensure task is in DOING, then navigate to focus
               if (task.status !== 'DOING') {
-                handleMoveTask(task.id, 'DOING');
+                const moved = handleMoveTask(task.id, 'DOING');
+                if (!moved) {
+                  return; // Chặn không chuyển màn hình sang FOCUS nếu vi phạm WIP=1
+                }
               }
               setCurrentScreen('FOCUS');
             }}

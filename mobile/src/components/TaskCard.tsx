@@ -5,7 +5,9 @@ import {
   View,
   TouchableOpacity,
   Animated,
+  Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Task, EnergyLevel, TaskStatus } from '../types';
 
 interface TaskCardProps {
@@ -101,15 +103,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       case 'DOING':
         return (
           <View style={styles.doingActionsGroup}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.revertBtn]}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                onMoveTask(task.id, 'TODO');
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.revertBtnText}>← Trả lại Cần làm</Text>
+            </TouchableOpacity>
+
             {onFocusTask && (
               <TouchableOpacity
                 style={[styles.actionBtn, styles.focusNowBtn]}
                 onPress={() => onFocusTask(task)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.focusNowBtnText}>🎯 Tập trung ngay</Text>
+                <Text style={styles.focusNowBtnText}>🎯 Tập trung</Text>
               </TouchableOpacity>
             )}
+
             <TouchableOpacity
               style={[styles.actionBtn, styles.doneBtn]}
               onPress={() => onMoveTask(task.id, 'DONE')}
@@ -332,7 +348,18 @@ const styles = StyleSheet.create({
   doingActionsGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8, // Minimum 8px spacing
+  },
+  revertBtn: {
+    backgroundColor: '#334155',
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  revertBtnText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    fontWeight: '600',
   },
   focusNowBtn: {
     backgroundColor: '#0284C7',
