@@ -61,3 +61,27 @@ export interface AIDecomposeResponse {
     energyLevel: EnergyLevel;
   }>;
 }
+
+export interface TaskResponse {
+  id: string;
+  userId?: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  urgency: UrgencyLevel;
+  energyRequired: EnergyLevel;
+  estimatedMinutes?: number;
+  position?: number;
+  subtaskCount: number;
+  completedSubtaskCount: number;
+  deadline?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  timestamp?: string;
+}

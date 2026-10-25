@@ -13,7 +13,6 @@ import { Task, TaskStatus, EnergyLevel, Subtask } from '../types';
 import { TaskCard } from '../components/TaskCard';
 import { QuickCaptureBar } from '../components/QuickCaptureBar';
 import { AIDecomposeModal } from '../components/AIDecomposeModal';
-import { NotificationToast } from '../components/NotificationToast';
 import {
   EnergyFilterWidget,
   EnergyFilterType,
@@ -21,11 +20,13 @@ import {
 
 export interface BoardScreenProps {
   tasks: Task[];
-  onMoveTask: (taskId: string, targetStatus: TaskStatus) => void;
+  onMoveTask: (taskId: string, targetStatus: TaskStatus) => void | Promise<boolean> | boolean;
   onQuickAdd: (title: string, energy: EnergyLevel) => void;
   onApplySubtasks: (taskId: string, newSubtasks: Subtask[]) => void;
   onNavigateFocus?: () => void;
   onFocusTask?: (task: Task) => void;
+  rollbackTaskId?: string | null;
+  isLoading?: boolean;
 }
 
 export const BoardScreen: React.FC<BoardScreenProps> = ({
@@ -35,62 +36,16 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   onApplySubtasks,
   onNavigateFocus,
   onFocusTask,
+  rollbackTaskId: propRollbackTaskId,
+  isLoading,
 }) => {
   const [activeColumn, setActiveColumn] = useState<TaskStatus>('TODO');
   const [decomposingTask, setDecomposingTask] = useState<Task | null>(null);
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyFilterType>('ALL');
 
-  // Edge Case 02: Single-task WIP=1 enforcement state
-  const [rollbackTaskId, setRollbackTaskId] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string>('');
-  const [toastVisible, setToastVisible] = useState<boolean>(false);
-  const [toastType, setToastType] = useState<'info' | 'warning' | 'success'>('warning');
-
-  const currentDoingTask = useMemo(
-    () => tasks.find((t) => t.status === 'DOING'),
-    [tasks]
-  );
-
-  // Intercept task movement with WIP=1 Spring Physics & Haptics
+  // Task movement with WIP=1 Spring Physics & Haptics delegation to useTaskStore
   const handleTaskMovement = (taskId: string, targetStatus: TaskStatus) => {
-    // Scenario A: User tries to move a 2nd task into DOING
-    if (targetStatus === 'DOING') {
-      const activeDoingTask = tasks.find(
-        (t) => t.status === 'DOING' && t.id !== taskId
-      );
-
-      if (activeDoingTask) {
-        // 1. Rung cảnh báo nhẹ (Warning soft buzz < 50ms)
-        if (Platform.OS !== 'web') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        }
-
-        // 2. Kích hoạt hiệu ứng lò xo bật ngược thẻ việc về vị trí cũ (Spring Physics Rollback)
-        setRollbackTaskId(taskId);
-        setTimeout(() => setRollbackTaskId(null), 800);
-
-        // 3. Hiển thị thông báo dịu dàng không phán xét (Edge Case 02, Toast 3.5s)
-        setToastType('warning');
-        setToastMessage(
-          `🎯 ĐƠN NHIỆM LÀ SIÊU NĂNG LỰC CỦA BẠN!\nBạn đang làm "${activeDoingTask.title}". Hãy hoàn thành dứt điểm hoặc đưa về Cần làm trước nhé!`
-        );
-        setToastVisible(true);
-        return; // Chặn hành động
-      }
-    }
-
-    // Scenario B: User completes a task (Moves to DONE)
-    if (targetStatus === 'DONE') {
-      // Rung 3 nhịp êm (Success < 80ms) kích hoạt cảm giác hoàn tất chu trình
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-      setToastType('success');
-      setToastMessage('🎉 Tuyệt vời! Bạn vừa hoàn thành một nhiệm vụ.');
-      setToastVisible(true);
-    }
-
-    // Scenario C: Moving between backlog / todo
+    // Scenario C: Moving to TODO
     if (targetStatus === 'TODO') {
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -157,19 +112,17 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Floating Empathetic Toast Notification */}
-      <NotificationToast
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onDismiss={() => setToastVisible(false)}
-        durationMs={3500}
-      />
-
       {/* App Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>🌌 Orbit</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.headerTitle}>🌌 Orbit</Text>
+            {isLoading && (
+              <View style={styles.syncBadge}>
+                <Text style={styles.syncBadgeText}>Đang đồng bộ...</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.headerSubtitle}>
             Điều phối công việc cho tâm trí ADHD
           </Text>
@@ -295,7 +248,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
               onOpenAIDecompose={(t) => setDecomposingTask(t)}
               onFocusTask={handleFocusTaskAction}
               isDimmed={isDimmed}
-              triggerRollback={rollbackTaskId === task.id}
+              triggerRollback={propRollbackTaskId === task.id}
             />
           ))
         )}
@@ -330,11 +283,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
     color: '#F8FAFC',
     letterSpacing: -0.5,
+  },
+  syncBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  syncBadgeText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontWeight: '600',
   },
   headerSubtitle: {
     fontSize: 12,
