@@ -143,3 +143,98 @@ Content-Type: application/json
 # curl -X POST http://localhost:8080/api/v1/tasks \
 #   -H "Content-Type: application/json" \
 #   -d '{"title": ""}'
+
+### ==============================================================================
+### PHẦN MỚI: AI TASK DECOMPOSITION & SUBTASKS MANAGEMENT
+### ==============================================================================
+
+### 10. Tạo Task lớn để chuẩn bị bẻ nhỏ bằng AI
+# @name createLargeTask
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Viết báo cáo chuyên đề tốt nghiệp về Spring AI",
+  "description": "Cần khảo sát kiến trúc RAG, Prompt Engineering và tích hợp Gemini",
+  "energyRequired": "HIGH",
+  "estimatedMinutes": 120
+}
+
+###
+# Curl tương đương:
+# curl -X POST http://localhost:8080/api/v1/tasks \
+#   -H "Content-Type: application/json" \
+#   -d '{"title": "Viết báo cáo chuyên đề tốt nghiệp về Spring AI", "energyRequired": "HIGH", "estimatedMinutes": 120}'
+
+### ------------------------------------------------------------------------------
+### 11. Yêu cầu AI Bẻ nhỏ việc (POST /api/v1/tasks/{id}/ai-decompose)
+### Kịch bản 1: Khi có GEMINI_API_KEY hợp lệ -> Gọi Gemini 1.5 Flash trả về JSON 3-5 bước.
+### Kịch bản 2: Khi timeout > 3000ms hoặc chưa cấu hình key -> Kích hoạt Heuristic Fallback (isFallback: true).
+@largeTaskId = {{createLargeTask.response.body.data.id}}
+
+# @name aiDecompose
+POST {{baseUrl}}/tasks/{{largeTaskId}}/ai-decompose
+Accept: application/json
+
+###
+# Curl tương đương:
+# curl -X POST http://localhost:8080/api/v1/tasks/<TASK_ID>/ai-decompose
+
+### ------------------------------------------------------------------------------
+### 12. Lưu hàng loạt Subtasks đã được phê duyệt vào DB (POST /api/v1/tasks/{id}/subtasks/bulk)
+POST {{baseUrl}}/tasks/{{largeTaskId}}/subtasks/bulk
+Content-Type: application/json
+
+{
+  "subtasks": [
+    {
+      "stepOrder": 1,
+      "title": "Mở ứng dụng soạn thảo và tạo file nháp mới",
+      "estimatedMinutes": 3,
+      "energyLevel": "LOW",
+      "isCompleted": false
+    },
+    {
+      "stepOrder": 2,
+      "title": "Gạch đầu dòng 3 ý chính cần thể hiện trong bài",
+      "estimatedMinutes": 10,
+      "energyLevel": "MEDIUM",
+      "isCompleted": false
+    },
+    {
+      "stepOrder": 3,
+      "title": "Viết đoạn mở đầu ngắn gọn 5 câu",
+      "estimatedMinutes": 15,
+      "energyLevel": "HIGH",
+      "isCompleted": false
+    }
+  ]
+}
+
+###
+# Curl tương đương:
+# curl -X POST http://localhost:8080/api/v1/tasks/<TASK_ID>/subtasks/bulk \
+#   -H "Content-Type: application/json" \
+#   -d '{"subtasks": [{"stepOrder": 1, "title": "Mở file nháp", "estimatedMinutes": 3, "energyLevel": "LOW"}]}'
+
+### ------------------------------------------------------------------------------
+### 13. Lấy danh sách Subtasks của nhiệm vụ (GET /api/v1/tasks/{id}/subtasks)
+# @name getSubtasks
+GET {{baseUrl}}/tasks/{{largeTaskId}}/subtasks
+Accept: application/json
+
+###
+# Curl tương đương:
+# curl -X GET http://localhost:8080/api/v1/tasks/<TASK_ID>/subtasks
+
+### ------------------------------------------------------------------------------
+### 14. Đánh dấu hoàn thành vi bước - Check-off Dopamine (PATCH /api/v1/tasks/{taskId}/subtasks/{subtaskId}/toggle)
+@firstSubtaskId = {{getSubtasks.response.body.data[0].id}}
+
+PATCH {{baseUrl}}/tasks/{{largeTaskId}}/subtasks/{{firstSubtaskId}}/toggle
+Accept: application/json
+
+###
+# Curl tương đương:
+# curl -X PATCH http://localhost:8080/api/v1/tasks/<TASK_ID>/subtasks/<SUBTASK_ID>/toggle
+
