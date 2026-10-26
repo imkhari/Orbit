@@ -24,6 +24,64 @@ import java.util.UUID;
 public class TaskController {
 
     private final TaskService taskService;
+    private final com.orbit.service.AIService aiService;
+    private final com.orbit.service.SubtaskService subtaskService;
+
+    /**
+     * Yêu cầu AI Gemini 1.5 Flash bẻ nhỏ việc thành 3-5 vi bước (<20m) hoặc kích hoạt Heuristic Fallback (Edge Case 01).
+     */
+    @PostMapping("/{id}/ai-decompose")
+    public ResponseEntity<ApiResponse<com.orbit.dto.response.AIDecomposeResponse>> decomposeTaskWithAI(
+        @PathVariable UUID id
+    ) {
+        log.info("REST request to decompose task ID {} using AI", id);
+        com.orbit.dto.response.AIDecomposeResponse response = aiService.decomposeTask(id);
+        String message = Boolean.TRUE.equals(response.isFallback())
+            ? "Orbit đã kích hoạt Heuristic Fallback chuẩn bị sẵn 3 bước mồi khởi động vừa sức giúp bạn!"
+            : "AI đã phân rã nhiệm vụ thành công thành các vi bước vừa sức!";
+        return ResponseEntity.ok(ApiResponse.ok(response, message));
+    }
+
+    /**
+     * Lưu hàng loạt các vi bước đã được người dùng phê duyệt vào Database (POST /api/v1/tasks/{id}/subtasks/bulk).
+     */
+    @PostMapping("/{id}/subtasks/bulk")
+    public ResponseEntity<ApiResponse<TaskResponse>> saveBulkSubtasks(
+        @PathVariable UUID id,
+        @Valid @RequestBody com.orbit.dto.request.BulkSubtasksRequest request
+    ) {
+        log.info("REST request to bulk save {} subtasks for task ID {}", request.subtasks().size(), id);
+        TaskResponse response = subtaskService.saveBulkSubtasks(id, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.ok(response, "Đã lưu danh sách các vi bước vào nhiệm vụ thành công!"));
+    }
+
+    /**
+     * Đánh dấu hoàn thành / chưa hoàn thành cho một vi bước (PATCH /api/v1/tasks/{taskId}/subtasks/{subtaskId}/toggle).
+     */
+    @PatchMapping("/{taskId}/subtasks/{subtaskId}/toggle")
+    public ResponseEntity<ApiResponse<com.orbit.dto.response.SubtaskResponse>> toggleSubtask(
+        @PathVariable UUID taskId,
+        @PathVariable UUID subtaskId
+    ) {
+        log.info("REST request to toggle subtask ID {} for task ID {}", subtaskId, taskId);
+        com.orbit.dto.response.SubtaskResponse response = subtaskService.toggleSubtask(taskId, subtaskId);
+        String message = Boolean.TRUE.equals(response.isCompleted())
+            ? "Tuyệt vời! Bạn vừa hoàn thành một vi bước (Dopamine Ignition)!"
+            : "Đã đánh dấu vi bước chưa hoàn thành.";
+        return ResponseEntity.ok(ApiResponse.ok(response, message));
+    }
+
+    /**
+     * Lấy danh sách vi bước của một nhiệm vụ.
+     */
+    @GetMapping("/{id}/subtasks")
+    public ResponseEntity<ApiResponse<List<com.orbit.dto.response.SubtaskResponse>>> getSubtasks(
+        @PathVariable UUID id
+    ) {
+        List<com.orbit.dto.response.SubtaskResponse> subtasks = subtaskService.getSubtasksByTaskId(id);
+        return ResponseEntity.ok(ApiResponse.ok(subtasks, "Lấy danh sách vi bước thành công"));
+    }
 
     /**
      * Ghi nhận nhiệm vụ tức thời vào Backlog (Instant Task Capture <5s).
