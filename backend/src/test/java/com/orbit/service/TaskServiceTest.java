@@ -35,6 +35,9 @@ class TaskServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private com.orbit.service.StreakService streakService;
+
     @InjectMocks
     private TaskServiceImpl taskService;
 
@@ -131,5 +134,6 @@ class TaskServiceTest {
 
         assertThat(response.status()).isEqualTo(Task.TaskStatus.DONE);
         assertThat(response.completedAt()).isNotNull();
+        verify(streakService, times(1)).recordActivity(mockUser.getId(), 10);
     }
 }

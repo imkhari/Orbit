@@ -6,6 +6,7 @@ import com.orbit.dto.response.SubtaskResponse;
 import com.orbit.dto.response.TaskResponse;
 import com.orbit.entity.Subtask;
 import com.orbit.entity.Task;
+import com.orbit.entity.User;
 import com.orbit.repository.SubtaskRepository;
 import com.orbit.repository.TaskRepository;
 import com.orbit.service.impl.SubtaskServiceImpl;
@@ -35,6 +36,9 @@ class SubtaskServiceTest {
     @Mock
     private SubtaskRepository subtaskRepository;
 
+    @Mock
+    private com.orbit.service.StreakService streakService;
+
     @InjectMocks
     private SubtaskServiceImpl subtaskService;
 
@@ -44,8 +48,10 @@ class SubtaskServiceTest {
     @BeforeEach
     void setUp() {
         taskId = UUID.randomUUID();
+        User testUser = User.builder().id(UUID.randomUUID()).email("demo@orbit.app").displayName("Test User").build();
         testTask = Task.builder()
                 .id(taskId)
+                .user(testUser)
                 .title("Làm đồ án tốt nghiệp Spring AI")
                 .subtasks(new ArrayList<>())
                 .build();
