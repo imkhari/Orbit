@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Modal,
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
@@ -26,10 +27,8 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
   onCompleteTask,
   onToggleSubtask,
 }) => {
-  // [Fix #5] Guard against double-tap on "Hoàn thành" button.
-  // Previously `celebrated` was set but never read — now `isSubmitting`
-  // disables the button after the first tap to prevent duplicate completions.
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPomodoroDoneModal, setShowPomodoroDoneModal] = useState(false);
 
   // If no task is currently in DOING
   if (!doingTask) {
@@ -58,6 +57,36 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
   const totalCount = subtasks.length;
   const percentDone =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  // Xử lý khi hoàn thành hết 25 phút Pomodoro
+  const handlePomodoroComplete = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+
+    setShowPomodoroDoneModal(true);
+
+    // Hiển thị Alert khích lệ dự phòng
+    Alert.alert(
+      '⏰ Hết 25 phút Pomodoro!',
+      `Tuyệt vời! Bạn vừa hoàn thành một phiên tập trung sâu cho "${doingTask.title}".\n\nBạn có muốn đánh dấu hoàn thành nhiệm vụ này sang "ĐÃ XONG" luôn không? 🌿`,
+      [
+        {
+          text: 'Để làm tiếp / Nghỉ ngơi',
+          style: 'cancel',
+          onPress: () => setShowPomodoroDoneModal(false),
+        },
+        {
+          text: 'Hoàn thành việc ✓',
+          onPress: () => {
+            setShowPomodoroDoneModal(false);
+            onCompleteTask(doingTask.id);
+            onExitFocus();
+          },
+        },
+      ]
+    );
+  };
 
   const handleFinishTask = () => {
     if (isSubmitting) return; // Prevent double-tap
@@ -111,7 +140,6 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
               <View style={styles.pulseDot} />
               <Text style={styles.doingIndicatorText}>ĐANG THỰC HIỆN DUY NHẤT</Text>
             </View>
-            {/* [Fix #6] energyRequired is a required field on Task (always truthy), no conditional needed */}
             <View style={styles.energyBadge}>
               <Text style={styles.energyBadgeText}>
                 {doingTask.energyRequired === 'LOW'
@@ -129,16 +157,11 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
           ) : null}
         </View>
 
-        {/* Central Focus Pomodoro Timer */}
+        {/* Central Focus Pomodoro Timer (25:00) */}
         <View style={styles.timerSection}>
           <FocusTimer
             initialMinutes={25}
-            onComplete={() => {
-              Alert.alert(
-                '⏰ Hết 25 phút Pomodoro!',
-                'Tuyệt vời! Bạn vừa hoàn thành một phiên tập trung sâu. Hãy duỗi người, uống một ngụm nước nhé!'
-              );
-            }}
+            onComplete={handlePomodoroComplete}
           />
         </View>
 
@@ -232,6 +255,47 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Pomodoro Complete Encouraging Modal */}
+      <Modal
+        visible={showPomodoroDoneModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPomodoroDoneModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalIcon}>🎉</Text>
+            <Text style={styles.modalTitle}>25 Phút Tập Trung Sâu Thành Công!</Text>
+            <Text style={styles.modalMessage}>
+              Tuyệt vời! Bạn vừa hoàn thành một phiên 25 phút Pomodoro trọn vẹn cho "{doingTask.title}".
+              Dopamine dâng trào, hãy duỗi người và uống một ngụm nước nhé! 🌿
+            </Text>
+
+            <View style={styles.modalBtnGroup}>
+              <TouchableOpacity
+                style={styles.modalDoneBtn}
+                onPress={() => {
+                  setShowPomodoroDoneModal(false);
+                  onCompleteTask(doingTask.id);
+                  onExitFocus();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalDoneBtnText}>Đánh dấu Xong (DONE) ✓</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalRestBtn}
+                onPress={() => setShowPomodoroDoneModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalRestBtnText}>Nghỉ ngơi và làm tiếp sau</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -257,6 +321,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     borderWidth: 1,
     borderColor: '#334155',
+    minHeight: 44, // WCAG Touch target >= 44x44 pt
+    justifyContent: 'center',
   },
   exitButtonText: {
     color: '#94A3B8',
@@ -504,5 +570,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#1E293B',
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+  },
+  modalIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalBtnGroup: {
+    width: '100%',
+    gap: 10,
+  },
+  modalDoneBtn: {
+    backgroundColor: '#059669',
+    minHeight: 48, // WCAG Touch target >= 44x44 pt
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalRestBtn: {
+    backgroundColor: '#334155',
+    minHeight: 48, // WCAG Touch target >= 44x44 pt
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalRestBtnText: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

@@ -20,6 +20,7 @@ export default function App() {
   // Quản lý trạng thái toàn cục với Zustand + AsyncStorage Cache
   const {
     tasks,
+    streak,
     isLoading,
     fetchTasks,
     addTask,
@@ -32,7 +33,7 @@ export default function App() {
     hideToast,
   } = useTaskStore();
 
-  // Đồng bộ danh sách nhiệm vụ từ backend ngay khi mở app
+  // Đồng bộ danh sách nhiệm vụ và streak từ backend ngay khi mở app
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
@@ -61,9 +62,11 @@ export default function App() {
         ) : currentScreen === 'BOARD' ? (
           <BoardScreen
             tasks={tasks}
+            streak={streak}
             onMoveTask={moveTask}
             onQuickAdd={addTask}
             onApplySubtasks={applySubtasks}
+            onToggleSubtask={toggleSubtask}
             onNavigateFocus={() => setCurrentScreen('FOCUS')}
             onFocusTask={async (task: Task) => {
               if (task.status !== 'DOING') {

@@ -6,10 +6,12 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Modal,
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Task, TaskStatus, EnergyLevel, Subtask } from '../types';
+import { StreakState } from '../store/useTaskStore';
 import { TaskCard } from '../components/TaskCard';
 import { QuickCaptureBar } from '../components/QuickCaptureBar';
 import { AIDecomposeModal } from '../components/AIDecomposeModal';
@@ -20,9 +22,11 @@ import {
 
 export interface BoardScreenProps {
   tasks: Task[];
+  streak?: StreakState;
   onMoveTask: (taskId: string, targetStatus: TaskStatus) => void | Promise<boolean> | boolean;
   onQuickAdd: (title: string, energy: EnergyLevel) => void;
   onApplySubtasks: (taskId: string, newSubtasks: Subtask[]) => void;
+  onToggleSubtask?: (taskId: string, subtaskId: string) => void;
   onNavigateFocus?: () => void;
   onFocusTask?: (task: Task) => void;
   rollbackTaskId?: string | null;
@@ -31,9 +35,20 @@ export interface BoardScreenProps {
 
 export const BoardScreen: React.FC<BoardScreenProps> = ({
   tasks,
+  streak = {
+    currentStreak: 5,
+    longestStreak: 5,
+    freezeCredits: 2,
+    streakState: 'ACTIVE',
+    totalXp: 150,
+    currentLevel: 1,
+    isFrozenToday: false,
+    gentleMessage: 'Mỗi bước nhỏ đều tạo nên bước nhảy lớn 🌿',
+  },
   onMoveTask,
   onQuickAdd,
   onApplySubtasks,
+  onToggleSubtask,
   onNavigateFocus,
   onFocusTask,
   rollbackTaskId: propRollbackTaskId,
@@ -42,16 +57,15 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   const [activeColumn, setActiveColumn] = useState<TaskStatus>('TODO');
   const [decomposingTask, setDecomposingTask] = useState<Task | null>(null);
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyFilterType>('ALL');
+  const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
 
   // Task movement with WIP=1 Spring Physics & Haptics delegation to useTaskStore
   const handleTaskMovement = (taskId: string, targetStatus: TaskStatus) => {
-    // Scenario C: Moving to TODO
     if (targetStatus === 'TODO') {
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
-
     onMoveTask(taskId, targetStatus);
   };
 
@@ -67,6 +81,13 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
     } else if (onNavigateFocus) {
       onNavigateFocus();
     }
+  };
+
+  const handleOpenStreakModal = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setShowStreakModal(true);
   };
 
   // Column definitions
@@ -112,9 +133,9 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* App Header */}
+      {/* App Header with Streak Shield Widget */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
           <View style={styles.titleRow}>
             <Text style={styles.headerTitle}>🌌 Orbit</Text>
             {isLoading && (
@@ -128,28 +149,92 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
           </Text>
         </View>
 
-        {onNavigateFocus && (
+        <View style={styles.headerRight}>
+          {/* Header Streak & Shield Widget (minHeight >= 44pt touch-target) */}
           <TouchableOpacity
-            style={styles.focusHeaderBtn}
-            onPress={onNavigateFocus}
-            activeOpacity={0.8}
+            style={styles.streakHeaderWidget}
+            onPress={handleOpenStreakModal}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.focusHeaderBtnText}>🎯 Focus Mode</Text>
+            <View style={styles.streakBadgeItem}>
+              <Text style={styles.streakFireText}>🔥 {streak.currentStreak} ngày</Text>
+            </View>
+            <View style={styles.streakDivider} />
+            <View style={styles.freezeBadgeItem}>
+              <Text style={styles.freezeShieldText}>🛡️ {streak.freezeCredits} Khiên</Text>
+            </View>
           </TouchableOpacity>
-        )}
+
+          {onNavigateFocus && (
+            <TouchableOpacity
+              style={styles.focusHeaderBtn}
+              onPress={onNavigateFocus}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.focusHeaderBtnText}>🎯 Focus</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* Energy Filter & Streak Shield Widget */}
+      {/* Gentle Tooltip/Modal for Streak Freeze Shield */}
+      <Modal
+        visible={showStreakModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowStreakModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalShieldIcon}>🛡️</Text>
+              <Text style={styles.modalTitle}>KHIÊN ĐÓNG BĂNG & CHUỖI NGÀY</Text>
+            </View>
+
+            <Text style={styles.modalEmpatheticMessage}>
+              "Khiên Đóng Băng sẽ tự động tha thứ và bảo vệ chuỗi ngày nếu hôm nay bạn bận việc hoặc cần nghỉ ngơi. Không áp lực, hãy làm khi bạn sẵn sàng! 🌿"
+            </Text>
+
+            <View style={styles.modalStatsGrid}>
+              <View style={styles.modalStatCard}>
+                <Text style={styles.modalStatValueFire}>🔥 {streak.currentStreak} ngày</Text>
+                <Text style={styles.modalStatLabel}>Chuỗi tập trung liên tiếp</Text>
+              </View>
+
+              <View style={styles.modalStatCard}>
+                <Text style={styles.modalStatValueShield}>🛡️ {streak.freezeCredits} Khiên</Text>
+                <Text style={styles.modalStatLabel}>Lá chắn bảo lưu sẵn sàng</Text>
+              </View>
+            </View>
+
+            <View style={styles.modalXpRow}>
+              <Text style={styles.modalXpText}>
+                ⭐ <Text style={styles.modalBoldText}>{streak.totalXp} XP</Text> • Cấp độ {streak.currentLevel}
+              </Text>
+              <Text style={styles.modalTipText}>
+                🌱 Cứ mỗi 3 ngày hoàn thành nhiệm vụ liên tục, bạn được nhận thêm 1 Khiên Bảo Vệ (tối đa 2 khiên).
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowStreakModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalCloseBtnText}>Đã hiểu 🌿</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Energy Quick-Filter Widget */}
       <EnergyFilterWidget
         selectedEnergy={selectedEnergy}
-        onSelectEnergy={(energy) => {
-          if (Platform.OS !== 'web') {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }
-          setSelectedEnergy(energy);
-        }}
-        streakDays={5}
-        freezeCount={2}
+        onSelectEnergy={(energy) => setSelectedEnergy(energy)}
+        streakDays={streak.currentStreak}
+        freezeCount={streak.freezeCredits}
+        showStreakCard={false}
       />
 
       {/* Column Tabs */}
@@ -196,7 +281,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
         })}
       </View>
 
-      {/* Task Cards List with Energy-based Rerank and Dimming */}
+      {/* Task Cards List with Energy-based Rerank, Dimming and Subtask check-off */}
       <ScrollView
         style={styles.taskListContainer}
         contentContainerStyle={styles.taskListContent}
@@ -247,6 +332,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
               onMoveTask={handleTaskMovement}
               onOpenAIDecompose={(t) => setDecomposingTask(t)}
               onFocusTask={handleFocusTaskAction}
+              onToggleSubtask={onToggleSubtask}
               isDimmed={isDimmed}
               triggerRollback={propRollbackTaskId === task.id}
             />
@@ -274,49 +360,91 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
+    gap: 8,
   },
-  titleRow: {
+  headerLeft: {
+    flex: 1,
+  },
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: '#F8FAFC',
     letterSpacing: -0.5,
   },
   syncBadge: {
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.3)',
   },
   syncBadgeText: {
     color: '#38BDF8',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
-    marginTop: 2,
+    marginTop: 1,
+  },
+  streakHeaderWidget: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minHeight: 44, // WCAG 2.1 AA Touch Target >= 44x44 pt
+    gap: 6,
+  },
+  streakBadgeItem: {
+    justifyContent: 'center',
+  },
+  streakFireText: {
+    color: '#FBBF24', // Sand Amber
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  streakDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: '#334155',
+  },
+  freezeBadgeItem: {
+    justifyContent: 'center',
+  },
+  freezeShieldText: {
+    color: '#818CF8', // Soft Iris / Freeze Shield Token
+    fontSize: 12,
+    fontWeight: '700',
   },
   focusHeaderBtn: {
     backgroundColor: '#0284C7',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#38BDF8',
     minHeight: 44, // WCAG Touch-target >= 44x44 pt
@@ -326,6 +454,118 @@ const styles = StyleSheet.create({
   focusHeaderBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.82)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#1E293B',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  modalShieldIcon: {
+    fontSize: 22,
+  },
+  modalTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#818CF8',
+    letterSpacing: 0.5,
+  },
+  modalEmpatheticMessage: {
+    fontSize: 14,
+    color: '#F8FAFC',
+    lineHeight: 22,
+    fontStyle: 'italic',
+    backgroundColor: 'rgba(129, 140, 248, 0.1)',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(129, 140, 248, 0.25)',
+    marginBottom: 16,
+  },
+  modalStatsGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  modalStatCard: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+  },
+  modalStatValueFire: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FBBF24',
+    marginBottom: 4,
+  },
+  modalStatValueShield: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#818CF8',
+    marginBottom: 4,
+  },
+  modalStatLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
+    textAlign: 'center',
+  },
+  modalXpRow: {
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginBottom: 18,
+    gap: 6,
+  },
+  modalXpText: {
+    fontSize: 13,
+    color: '#38BDF8',
+  },
+  modalBoldText: {
+    fontWeight: '800',
+  },
+  modalTipText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    lineHeight: 16,
+  },
+  modalCloseBtn: {
+    backgroundColor: '#334155',
+    minHeight: 48, // WCAG Touch target >= 44x44 pt
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#F8FAFC',
+    fontSize: 14,
     fontWeight: '700',
   },
   columnTabBar: {

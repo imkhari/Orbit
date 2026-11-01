@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { EnergyLevel } from '../types';
 
 export type EnergyFilterType = 'ALL' | EnergyLevel;
@@ -9,13 +10,15 @@ interface EnergyFilterWidgetProps {
   onSelectEnergy: (energy: EnergyFilterType) => void;
   streakDays?: number;
   freezeCount?: number;
+  showStreakCard?: boolean;
 }
 
 export const EnergyFilterWidget: React.FC<EnergyFilterWidgetProps> = ({
   selectedEnergy,
   onSelectEnergy,
   streakDays = 5,
-  freezeCount = 1,
+  freezeCount = 2,
+  showStreakCard = false,
 }) => {
   const filterOptions: Array<{ id: EnergyFilterType; label: string; activeColor: string }> = [
     { id: 'ALL', label: 'Tất cả', activeColor: '#38BDF8' },
@@ -24,32 +27,39 @@ export const EnergyFilterWidget: React.FC<EnergyFilterWidgetProps> = ({
     { id: 'HIGH', label: '🔥 Cao', activeColor: '#F87171' },
   ];
 
+  const handleSelect = (energy: EnergyFilterType) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onSelectEnergy(energy);
+  };
+
   return (
     <View style={styles.container}>
-      {/* Streak Shield Widget (ADHD RSD Psychological Defense) */}
-      <View style={styles.streakCard}>
-        <View style={styles.streakLeft}>
-          <Text style={styles.streakIcon}>🔥</Text>
-          <View>
-            <Text style={styles.streakTitle}>
-              Chuỗi tập trung: <Text style={styles.streakNumber}>{streakDays} ngày</Text>
+      {showStreakCard && (
+        <View style={styles.streakCard}>
+          <View style={styles.streakLeft}>
+            <Text style={styles.streakIcon}>🔥</Text>
+            <View>
+              <Text style={styles.streakTitle}>
+                Chuỗi tập trung: <Text style={styles.streakNumber}>{streakDays} ngày</Text>
+              </Text>
+              <Text style={styles.streakSubtitle}>
+                Mỗi bước nhỏ đều tạo nên bước nhảy lớn
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.freezeBadge}>
+            <Text style={styles.freezeBadgeText}>
+              🛡️ {freezeCount} Khiên Đóng Băng
             </Text>
-            <Text style={styles.streakSubtitle}>
-              Mỗi bước nhỏ đều tạo nên bước nhảy lớn
+            <Text style={styles.freezeSubtext}>
+              Nghỉ ngơi không mất chuỗi
             </Text>
           </View>
         </View>
-
-        {/* Streak Freeze Badge */}
-        <View style={styles.freezeBadge}>
-          <Text style={styles.freezeBadgeText}>
-            🛡️ {freezeCount} Streak Freeze sẵn sàng
-          </Text>
-          <Text style={styles.freezeSubtext}>
-            Nghỉ 1 ngày không mất chuỗi
-          </Text>
-        </View>
-      </View>
+      )}
 
       {/* Energy Quick-Filter Bar */}
       <View style={styles.filterSection}>
@@ -57,8 +67,9 @@ export const EnergyFilterWidget: React.FC<EnergyFilterWidgetProps> = ({
           <Text style={styles.filterSectionTitle}>Năng lượng nhận thức hiện tại:</Text>
           {selectedEnergy !== 'ALL' && (
             <TouchableOpacity
-              onPress={() => onSelectEnergy('ALL')}
+              onPress={() => handleSelect('ALL')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.resetBtn}
             >
               <Text style={styles.resetFilterText}>Xóa lọc</Text>
             </TouchableOpacity>
@@ -76,7 +87,7 @@ export const EnergyFilterWidget: React.FC<EnergyFilterWidgetProps> = ({
                   isSelected && styles.chipSelected,
                   isSelected && { borderColor: opt.activeColor },
                 ]}
-                onPress={() => onSelectEnergy(opt.id)}
+                onPress={() => handleSelect(opt.id)}
                 activeOpacity={0.7}
               >
                 <Text
@@ -100,7 +111,7 @@ export const EnergyFilterWidget: React.FC<EnergyFilterWidgetProps> = ({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 8,
     paddingBottom: 8,
     backgroundColor: '#0F172A',
   },
@@ -112,7 +123,7 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     flexDirection: 'column',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   streakLeft: {
     flexDirection: 'row',
@@ -128,7 +139,7 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
   },
   streakNumber: {
-    color: '#F59E0B',
+    color: '#FBBF24',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -171,6 +182,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#94A3B8',
   },
+  resetBtn: {
+    minHeight: 24,
+    justifyContent: 'center',
+  },
   resetFilterText: {
     fontSize: 11,
     color: '#38BDF8',
@@ -182,7 +197,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     flex: 1,
-    minHeight: 44, // WCAG Touch target
+    minHeight: 44, // WCAG Touch target >= 44x44 pt
     backgroundColor: '#1E293B',
     borderRadius: 10,
     borderWidth: 1,
