@@ -320,8 +320,8 @@ const styles = StyleSheet.create({
     shadowColor: '#0284C7',
   },
   pauseButton: {
-    backgroundColor: '#EA580C',
-    shadowColor: '#EA580C',
+    backgroundColor: '#D97706', // Sand Amber token ấm áp, dịu mắt
+    shadowColor: '#D97706',
   },
   mainButtonText: {
     color: '#FFFFFF',

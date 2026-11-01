@@ -102,6 +102,23 @@ export interface StreakResponse {
   gentleMessage?: string;
 }
 
+export interface FocusSessionResponse {
+  id: string;
+  taskId?: string;
+  taskTitle?: string;
+  durationMinutes: number;
+  isCompleted: boolean;
+  earnedXp: number;
+  completedAt?: string;
+  createdAt?: string;
+}
+
+export interface LogFocusSessionRequest {
+  taskId: string;
+  durationMinutes: number;
+  isCompleted?: boolean;
+}
+
 export interface TaskResponse {
   id: string;
   userId?: string;

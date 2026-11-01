@@ -343,16 +343,16 @@ export const useTaskStore = create<TaskStoreState>()(
        * - Đồng bộ dữ liệu có server UUID vào Zustand và TaskCard
        */
       applySubtasks: async (taskId: string, newSubtasks: Subtask[]) => {
-        // Cập nhật lạc quan trước
+        const totalMinutes = newSubtasks.reduce((sum, s) => sum + s.estimatedMinutes, 0);
+
+        // Cập nhật lạc quan: thiết lập danh sách vi bước mới đã được phê duyệt
         set((state) => ({
           tasks: state.tasks.map((t) => {
             if (t.id !== taskId) return t;
-            const mergedSubtasks = [...t.subtasks, ...newSubtasks];
-            const addedMinutes = newSubtasks.reduce((sum, s) => sum + s.estimatedMinutes, 0);
             return {
               ...t,
-              subtasks: mergedSubtasks,
-              estimatedMinutes: (t.estimatedMinutes || 0) + addedMinutes,
+              subtasks: newSubtasks,
+              estimatedMinutes: totalMinutes > 0 ? totalMinutes : t.estimatedMinutes,
             };
           }),
         }));

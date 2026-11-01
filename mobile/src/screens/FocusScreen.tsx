@@ -13,6 +13,8 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Task, Subtask } from '../types';
 import { FocusTimer } from '../components/FocusTimer';
+import { FocusSessionService } from '../services/api';
+import { useTaskStore } from '../store/useTaskStore';
 
 interface FocusScreenProps {
   doingTask: Task | null;
@@ -59,33 +61,26 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   // Xử lý khi hoàn thành hết 25 phút Pomodoro
-  const handlePomodoroComplete = () => {
+  const handlePomodoroComplete = async () => {
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
 
-    setShowPomodoroDoneModal(true);
+    // Ghi nhận phiên Pomodoro 25 phút lên backend để nhận thưởng +15 XP
+    try {
+      await FocusSessionService.logSession({
+        taskId: doingTask.id,
+        durationMinutes: 25,
+        isCompleted: true,
+      });
+      // Đồng bộ lại điểm thưởng XP và chuỗi ngày
+      useTaskStore.getState().fetchStreak();
+    } catch (err: any) {
+      console.warn('Focus session background sync failed (lưu tạm offline):', err?.message);
+    }
 
-    // Hiển thị Alert khích lệ dự phòng
-    Alert.alert(
-      '⏰ Hết 25 phút Pomodoro!',
-      `Tuyệt vời! Bạn vừa hoàn thành một phiên tập trung sâu cho "${doingTask.title}".\n\nBạn có muốn đánh dấu hoàn thành nhiệm vụ này sang "ĐÃ XONG" luôn không? 🌿`,
-      [
-        {
-          text: 'Để làm tiếp / Nghỉ ngơi',
-          style: 'cancel',
-          onPress: () => setShowPomodoroDoneModal(false),
-        },
-        {
-          text: 'Hoàn thành việc ✓',
-          onPress: () => {
-            setShowPomodoroDoneModal(false);
-            onCompleteTask(doingTask.id);
-            onExitFocus();
-          },
-        },
-      ]
-    );
+    // Hiển thị Modal khích lệ dịu dàng (không dùng Alert trùng lặp gây rối mắt)
+    setShowPomodoroDoneModal(true);
   };
 
   const handleFinishTask = () => {

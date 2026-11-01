@@ -10,6 +10,8 @@ import {
   TaskResponse,
   SubtaskResponse,
   StreakResponse,
+  FocusSessionResponse,
+  LogFocusSessionRequest,
 } from '../types';
 
 /**
@@ -210,5 +212,19 @@ export const StreakService = {
     );
 
     return (response.data as ApiResponse<StreakResponse>)?.data ?? (response.data as StreakResponse);
+  },
+};
+
+export const FocusSessionService = {
+  /**
+   * Ghi nhận phiên tập trung Pomodoro (25m) và cộng XP (POST /api/v1/focus/sessions)
+   */
+  logSession: async (request: LogFocusSessionRequest): Promise<FocusSessionResponse> => {
+    const response = await apiClient.post<ApiResponse<FocusSessionResponse> | FocusSessionResponse>(
+      '/focus/sessions',
+      request
+    );
+
+    return (response.data as ApiResponse<FocusSessionResponse>)?.data ?? (response.data as FocusSessionResponse);
   },
 };
