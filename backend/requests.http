@@ -238,3 +238,46 @@ Accept: application/json
 # Curl tương đương:
 # curl -X PATCH http://localhost:8080/api/v1/tasks/<TASK_ID>/subtasks/<SUBTASK_ID>/toggle
 
+### ==============================================================================
+### PHẦN MỚI: GENTLE GAMIFICATION, STREAK FREEZE SHIELD & FOCUS SESSIONS
+### ==============================================================================
+
+### 15. Lấy trạng thái chuỗi ngày, Khiên Đóng Băng và điểm XP (GET /api/v1/users/me/streak)
+### Kiểm tra: Số ngày streak, số khiên bảo vệ (mặc định 1), điểm XP tích lũy và level
+# @name getStreak
+GET {{baseUrl}}/users/me/streak
+Accept: application/json
+
+###
+# Curl tương đương:
+# curl -X GET http://localhost:8080/api/v1/users/me/streak
+
+### ------------------------------------------------------------------------------
+### 16. Ghi nhận phiên tập trung Pomodoro 25 phút (POST /api/v1/focus/sessions)
+### Kỳ vọng: HTTP 201 Created kèm phần thưởng +15 XP và cập nhật chuỗi
+# @name logFocusSession
+POST {{baseUrl}}/focus/sessions
+Content-Type: application/json
+
+{
+  "taskId": "{{largeTaskId}}",
+  "durationMinutes": 25,
+  "isCompleted": true
+}
+
+###
+# Curl tương đương:
+# curl -X POST http://localhost:8080/api/v1/focus/sessions \
+#   -H "Content-Type: application/json" \
+#   -d '{"durationMinutes": 25, "isCompleted": true}'
+
+### ------------------------------------------------------------------------------
+### 17. Lấy danh sách các phiên tập trung đã thực hiện hôm nay (GET /api/v1/focus/sessions/today)
+GET {{baseUrl}}/focus/sessions/today
+Accept: application/json
+
+###
+# Curl tương đương:
+# curl -X GET http://localhost:8080/api/v1/focus/sessions/today
+
+

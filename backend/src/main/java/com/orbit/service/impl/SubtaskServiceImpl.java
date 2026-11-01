@@ -26,6 +26,7 @@ public class SubtaskServiceImpl implements SubtaskService {
 
     private final TaskRepository taskRepository;
     private final SubtaskRepository subtaskRepository;
+    private final com.orbit.service.StreakService streakService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -77,6 +78,11 @@ public class SubtaskServiceImpl implements SubtaskService {
 
         Subtask updated = subtaskRepository.save(subtask);
         log.info("Toggled subtask ID: {} to isCompleted={}", subtaskId, newCompleted);
+
+        // Quy tắc thưởng XP: Hoàn thành 1 vi bước nhận ngay +5 XP (Dopamine Ignition)
+        if (newCompleted && subtask.getTask() != null && subtask.getTask().getUser() != null) {
+            streakService.recordActivity(subtask.getTask().getUser().getId(), 5);
+        }
 
         return SubtaskResponse.fromEntity(updated);
     }

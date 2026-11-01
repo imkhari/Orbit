@@ -27,6 +27,7 @@ public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final com.orbit.service.StreakService streakService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -75,9 +76,12 @@ public class TaskServiceImpl implements TaskService {
             }
         }
 
-        // Cập nhật completedAt nếu chuyển sang DONE
+        // Cập nhật completedAt nếu chuyển sang DONE và thưởng +10 XP
         if (targetStatus == Task.TaskStatus.DONE && task.getStatus() != Task.TaskStatus.DONE) {
             task.setCompletedAt(Instant.now());
+            if (task.getUser() != null) {
+                streakService.recordActivity(task.getUser().getId(), 10);
+            }
         } else if (targetStatus != Task.TaskStatus.DONE) {
             task.setCompletedAt(null);
         }
