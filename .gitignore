@@ -59,3 +59,8 @@ logs/
 
 # Scratch directory
 scratch/
+
+# Python
+__pycache__/
+*.py[cod]
+*.class

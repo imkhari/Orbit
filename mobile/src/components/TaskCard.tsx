@@ -20,7 +20,7 @@ interface TaskCardProps {
   triggerRollback?: boolean;
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({
+const TaskCardComponent: React.FC<TaskCardProps> = ({
   task,
   onMoveTask,
   onOpenAIDecompose,
@@ -100,6 +100,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             style={[styles.actionBtn, styles.nextBtn]}
             onPress={() => onMoveTask(task.id, 'TODO')}
             activeOpacity={0.7}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Chuyển nhiệm vụ "${task.title}" sang Cần làm`}
           >
             <Text style={styles.nextBtnText}>Cần làm →</Text>
           </TouchableOpacity>
@@ -110,6 +113,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             style={[styles.actionBtn, styles.focusBtn]}
             onPress={() => onMoveTask(task.id, 'DOING')}
             activeOpacity={0.7}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Bắt đầu làm nhiệm vụ "${task.title}"`}
           >
             <Text style={styles.focusBtnText}>Bắt đầu (Doing) 🎯</Text>
           </TouchableOpacity>
@@ -126,6 +132,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 onMoveTask(task.id, 'TODO');
               }}
               activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={`Trả "${task.title}" lại cột Cần làm`}
             >
               <Text style={styles.revertBtnText}>← Trả lại</Text>
             </TouchableOpacity>
@@ -135,6 +144,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 style={[styles.actionBtn, styles.focusNowBtn]}
                 onPress={() => onFocusTask(task)}
                 activeOpacity={0.8}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={`Mở chế độ tập trung cho "${task.title}"`}
               >
                 <Text style={styles.focusNowBtnText}>🎯 Tập trung</Text>
               </TouchableOpacity>
@@ -144,6 +156,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               style={[styles.actionBtn, styles.doneBtn]}
               onPress={() => onMoveTask(task.id, 'DONE')}
               activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={`Đánh dấu hoàn thành "${task.title}"`}
             >
               <Text style={styles.doneBtnText}>Xong ✓</Text>
             </TouchableOpacity>
@@ -155,6 +170,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             style={[styles.actionBtn, styles.reopenBtn]}
             onPress={() => onMoveTask(task.id, 'TODO')}
             activeOpacity={0.7}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Mở lại "${task.title}" vào cột Cần làm`}
           >
             <Text style={styles.reopenBtnText}>Làm lại ↺</Text>
           </TouchableOpacity>
@@ -202,6 +220,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             onPress={() => setIsSubtasksExpanded((prev) => !prev)}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Danh sách vi bước: ${completedSubtasks} trên ${totalSubtasks} hoàn thành. Nhấn để ${isSubtasksExpanded ? 'thu gọn' : 'mở rộng'}`}
           >
             <Text style={styles.metaText}>
               📋 {completedSubtasks}/{totalSubtasks} vi bước {isSubtasksExpanded ? '▾' : '▸'}
@@ -242,6 +263,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   ]}
                   onPress={() => handleSubtaskPress(sub.id)}
                   activeOpacity={0.7}
+                  accessible={true}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: sub.isCompleted }}
+                  accessibilityLabel={`Vi bước: ${sub.title}, ${sub.isCompleted ? 'đã hoàn thành' : 'chưa hoàn thành'}`}
+                  accessibilityHint="Chạm để đánh dấu hoàn thành hoặc chưa hoàn thành"
                 >
                   <View
                     style={[
@@ -286,6 +312,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           style={styles.aiButton}
           onPress={() => onOpenAIDecompose(task)}
           activeOpacity={0.7}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={`Bẻ nhỏ nhiệm vụ "${task.title}" bằng AI`}
         >
           <Text style={styles.aiButtonText}>✨ AI Bẻ việc</Text>
         </TouchableOpacity>
@@ -347,16 +376,14 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 10,
+    gap: 6,
   },
   metaBadge: {
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(51, 65, 85, 0.5)',
   },
   metaText: {
     fontSize: 11,
@@ -364,12 +391,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   subtasksContainer: {
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
     borderRadius: 10,
     padding: 10,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(51, 65, 85, 0.5)',
+    marginBottom: 10,
   },
   progressHeaderRow: {
     flexDirection: 'row',
@@ -388,7 +413,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   progressBarTrack: {
-    height: 6,
+    height: 5,
     backgroundColor: '#334155',
     borderRadius: 3,
     overflow: 'hidden',
@@ -403,29 +428,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#34D399', // Mint Emerald
   },
   subtasksList: {
-    gap: 6,
-    marginTop: 4,
+    gap: 4,
+    marginTop: 2,
   },
   subtaskRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 8,
-    minHeight: 44, // WCAG 2.1 AA touch target >= 44x44 pt
-    borderWidth: 1,
-    borderColor: 'rgba(51, 65, 85, 0.4)',
+    paddingVertical: 6,
+    minHeight: 40,
   },
   subtaskRowCompleted: {
     backgroundColor: 'rgba(5, 150, 105, 0.08)',
-    borderColor: 'rgba(5, 150, 105, 0.25)',
   },
   checkbox: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderRadius: 6,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#64748B',
     justifyContent: 'center',
     alignItems: 'center',
@@ -437,7 +459,7 @@ const styles = StyleSheet.create({
   },
   checkmarkIcon: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
   },
   subtaskContent: {
@@ -470,16 +492,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(51, 65, 85, 0.4)',
+    borderTopColor: 'rgba(51, 65, 85, 0.3)',
+    gap: 8,
+    flexWrap: 'wrap',
   },
   aiButton: {
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-    minHeight: 44, // WCAG 2.1 AA touch-target >= 44x44 pt
+    minHeight: 40,
     justifyContent: 'center',
   },
   aiButtonText: {
@@ -489,12 +511,14 @@ const styles = StyleSheet.create({
   },
   statusActionWrapper: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   actionBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 8,
-    minHeight: 44, // WCAG 2.1 AA touch-target >= 44x44 pt
+    minHeight: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -539,7 +563,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 8, // Minimum 8px spacing
+    gap: 6,
   },
   revertBtn: {
     backgroundColor: '#334155',
@@ -562,3 +586,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+export const TaskCard = React.memo(TaskCardComponent);

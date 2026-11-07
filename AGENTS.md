@@ -88,6 +88,7 @@ Custom workspace procedures reside in `.agents/`:
 | [`.agents/skills/orbit-feature-builder/SKILL.md`](.agents/skills/orbit-feature-builder/SKILL.md) | On-Demand Skill | Autonomous end-to-end feature pipeline across Spring Boot and React Native. |
 | [`.agents/skills/open-code-review/SKILL.md`](.agents/skills/open-code-review/SKILL.md) | On-Demand Skill | AI-powered code review on Git changes using Alibaba OCR CLI (`ocr review` / `ocr delegate`). |
 | [`.agents/skills/code-review-skill/SKILL.md`](.agents/skills/code-review-skill/SKILL.md) | On-Demand Skill | Comprehensive multi-ecosystem PR code review guidelines, architecture, security & performance audits. |
+| [`.agents/skills/ui-ux-pro-max/SKILL.md`](.agents/skills/ui-ux-pro-max/SKILL.md) | On-Demand Skill | UI/UX design intelligence database (80 styles, 192 product palettes, 74 typography pairings, 119 UX guidelines, 22 stacks including React Native). Run via `python .agents/skills/ui-ux-pro-max/scripts/search.py`. |
 
 ---
 

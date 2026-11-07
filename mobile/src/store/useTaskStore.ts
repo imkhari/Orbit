@@ -78,28 +78,17 @@ export const useTaskStore = create<TaskStoreState>()(
           const fetchedTasks = await TaskService.getTasks();
           const currentTasks = get().tasks;
 
-          // Hợp nhất dữ liệu server với cache địa phương, bảo tồn subtasks đã có
-          const mergedTasks: Task[] = await Promise.all(
-            fetchedTasks.map(async (ft) => {
-              const localMatch = currentTasks.find((t) => t.id === ft.id);
-              if (localMatch && localMatch.subtasks && localMatch.subtasks.length > 0) {
-                return {
-                  ...ft,
-                  subtasks: localMatch.subtasks,
-                };
-              }
-              // Nếu server báo có subtasks mà local chưa có, tải về
-              try {
-                const subtasks = await TaskService.getSubtasks(ft.id);
-                return {
-                  ...ft,
-                  subtasks,
-                };
-              } catch {
-                return ft;
-              }
-            })
-          );
+          // Hợp nhất dữ liệu server với cache địa phương, bảo tồn subtasks đã có (loại bỏ N+1 HTTP request)
+          const mergedTasks: Task[] = fetchedTasks.map((ft) => {
+            const localMatch = currentTasks.find((t) => t.id === ft.id);
+            if (localMatch && localMatch.subtasks && localMatch.subtasks.length > 0) {
+              return {
+                ...ft,
+                subtasks: localMatch.subtasks,
+              };
+            }
+            return ft;
+          });
 
           // Giữ lại các task tạo tạm thời lúc offline chưa đồng bộ
           const pendingOfflineTasks = currentTasks.filter((t) => t.id.startsWith('temp-'));
@@ -391,19 +380,19 @@ export const useTaskStore = create<TaskStoreState>()(
        * Hoàn thành toàn bộ task (từ FocusScreen hoặc nút hoàn thành)
        */
       completeTask: async (taskId: string) => {
+        // Đánh dấu xong toàn bộ subtasks trong local state trước
         set((state) => ({
           tasks: state.tasks.map((t) =>
             t.id === taskId
               ? {
                   ...t,
-                  status: 'DONE',
-                  completedAt: new Date().toISOString(),
                   subtasks: t.subtasks.map((s) => ({ ...s, isCompleted: true })),
                 }
               : t
           ),
         }));
 
+        // Gọi moveTask để thực hiện optimistic update chuyển sang DONE, trigger Haptics và gọi API backend
         await get().moveTask(taskId, 'DONE');
       },
 

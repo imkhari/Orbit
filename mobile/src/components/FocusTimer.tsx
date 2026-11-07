@@ -6,8 +6,14 @@ import {
   TouchableOpacity,
   Vibration,
   Platform,
+  AppState,
+  AppStateStatus,
+  Dimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+
+const { width: screenWidth } = Dimensions.get('window');
+const dialSize = Math.min(Math.round(screenWidth * 0.52), 200);
 
 interface FocusTimerProps {
   initialMinutes?: number;
@@ -26,6 +32,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
   const [hasCompleted, setHasCompleted] = useState<boolean>(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const endTimeRef = useRef<number | null>(null);
 
   // Store latest callbacks in refs to avoid stale closures
   const onCompleteRef = useRef(onComplete);
@@ -41,6 +48,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
   useEffect(() => {
     if (!isActive && secondsLeft === totalSeconds) {
       setSecondsLeft(initialMinutes * 60);
+      endTimeRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMinutes]);
@@ -48,6 +56,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
   // Watch for timer reaching zero and trigger completion side-effects
   useEffect(() => {
     if (secondsLeft === 0 && isActive) {
+      endTimeRef.current = null;
       if (timerRef.current) clearInterval(timerRef.current);
       setIsActive(false);
       setHasCompleted(true);
@@ -59,19 +68,36 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
     }
   }, [secondsLeft, isActive]);
 
-  // Tick interval — pure updater function inside setSecondsLeft
+  // Tick interval với mốc endTime thực tế — chống trôi lệch thời gian khi app chạy ngầm hoặc tắt màn hình
   useEffect(() => {
     if (isActive) {
-      timerRef.current = setInterval(() => {
-        setSecondsLeft((prev) => (prev <= 1 ? 0 : prev - 1));
-      }, 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
+      if (!endTimeRef.current) {
+        endTimeRef.current = Date.now() + secondsLeft * 1000;
+      }
 
-    return () => {
+      const syncRemainingTime = () => {
+        if (!endTimeRef.current) return;
+        const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+        setSecondsLeft(remaining);
+      };
+
+      timerRef.current = setInterval(syncRemainingTime, 1000);
+
+      // Đồng bộ ngay lập tức khi ứng dụng chuyển từ Background quay lại Foreground (Active)
+      const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+        if (nextState === 'active') {
+          syncRemainingTime();
+        }
+      });
+
+      return () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        subscription.remove();
+      };
+    } else {
+      endTimeRef.current = null;
       if (timerRef.current) clearInterval(timerRef.current);
-    };
+    }
   }, [isActive]);
 
   // Handle onSessionTick callback safely outside the state updater function
@@ -90,6 +116,11 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
     if (secondsLeft === 0) {
       setSecondsLeft(totalSeconds);
       setHasCompleted(false);
+      endTimeRef.current = Date.now() + totalSeconds * 1000;
+    } else if (!isActive) {
+      endTimeRef.current = Date.now() + secondsLeft * 1000;
+    } else {
+      endTimeRef.current = null;
     }
     setIsActive((prev) => !prev);
   };
@@ -98,6 +129,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    endTimeRef.current = null;
     if (timerRef.current) clearInterval(timerRef.current);
     setIsActive(false);
     setSecondsLeft(totalSeconds);
@@ -178,6 +210,16 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
           ]}
           onPress={handleToggle}
           activeOpacity={0.8}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isActive
+              ? 'Tạm dừng đếm thời gian tập trung'
+              : secondsLeft === 0
+              ? 'Bắt đầu lại phiên tập trung'
+              : 'Bắt đầu phiên tập trung Pomodoro'
+          }
+          accessibilityHint="Chạm để bắt đầu hoặc tạm dừng đếm ngược"
         >
           <Text style={styles.mainButtonText}>
             {isActive ? '⏸ Tạm dừng' : secondsLeft === 0 ? '🔄 Bắt đầu lại' : '▶ Bắt đầu'}
@@ -188,6 +230,10 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
           style={styles.resetButton}
           onPress={handleReset}
           activeOpacity={0.7}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Đặt lại thời gian tập trung ban đầu"
+          accessibilityHint="Chạm để đưa đồng hồ về mốc ban đầu"
         >
           <Text style={styles.resetButtonText}>Đặt lại</Text>
         </TouchableOpacity>
@@ -203,31 +249,21 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   dialContainer: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: dialSize,
+    height: dialSize,
+    borderRadius: dialSize / 2,
     backgroundColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: '#334155',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
   },
   dialContainerActive: {
     borderColor: '#38BDF8',
     backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    shadowColor: '#38BDF8',
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
   },
   dialContainerCompleted: {
-    borderColor: '#10B981',
-    shadowColor: '#10B981',
-    shadowOpacity: 0.3,
+    borderColor: '#34D399',
   },
   dialInner: {
     alignItems: 'center',
@@ -235,24 +271,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   timerBadge: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#94A3B8',
-    marginBottom: 6,
+    marginBottom: 4,
     letterSpacing: 0.5,
   },
   timeDisplay: {
-    fontSize: 46,
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+    fontSize: dialSize < 190 ? 38 : 44,
     fontWeight: '800',
     color: '#F8FAFC',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     fontVariant: ['tabular-nums'],
   },
   timeDisplayActive: {
     color: '#38BDF8',
   },
   timeDisplayCompleted: {
-    color: '#10B981',
+    color: '#34D399',
   },
   sessionGoalText: {
     fontSize: 11,
@@ -261,15 +298,15 @@ const styles = StyleSheet.create({
   },
   progressBarWrapper: {
     width: '100%',
-    maxWidth: 320,
-    marginTop: 24,
-    marginBottom: 20,
+    maxWidth: 280,
+    marginTop: 16,
+    marginBottom: 16,
     paddingHorizontal: 8,
   },
   progressBarTrack: {
-    height: 8,
+    height: 6,
     backgroundColor: '#1E293B',
-    borderRadius: 4,
+    borderRadius: 3,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#334155',
@@ -277,61 +314,55 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     backgroundColor: '#38BDF8',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   progressBarFillCompleted: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#34D399',
   },
   progressLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   progressLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
     fontWeight: '500',
   },
   progressValue: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#38BDF8',
     fontWeight: '700',
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginTop: 8,
+    gap: 12,
+    marginTop: 4,
   },
   mainButton: {
-    minHeight: 48,
-    paddingHorizontal: 28,
-    borderRadius: 24,
+    minHeight: 44,
+    paddingHorizontal: 24,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
   },
   startButton: {
     backgroundColor: '#0284C7',
-    shadowColor: '#0284C7',
   },
   pauseButton: {
-    backgroundColor: '#D97706', // Sand Amber token ấm áp, dịu mắt
-    shadowColor: '#D97706',
+    backgroundColor: '#F59E0B', // Sand Amber token ấm áp, dịu mắt (không dùng đỏ)
   },
   mainButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   resetButton: {
-    minHeight: 48,
-    paddingHorizontal: 20,
-    borderRadius: 24,
+    minHeight: 44,
+    paddingHorizontal: 18,
+    borderRadius: 22,
     backgroundColor: '#1E293B',
     borderWidth: 1,
     borderColor: '#475569',

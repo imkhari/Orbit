@@ -3,6 +3,8 @@ package com.orbit.dto.response;
 import com.orbit.entity.Task;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -22,12 +24,17 @@ public record TaskResponse(
     int completedSubtaskCount,
     Instant deadline,
     Instant createdAt,
-    Instant completedAt
+    Instant completedAt,
+    List<SubtaskResponse> subtasks
 ) {
     public static TaskResponse fromEntity(Task task) {
         int subtaskCount = task.getSubtasks() != null ? task.getSubtasks().size() : 0;
         int completedCount = task.getSubtasks() != null ?
             (int) task.getSubtasks().stream().filter(s -> Boolean.TRUE.equals(s.getIsCompleted())).count() : 0;
+
+        List<SubtaskResponse> subtaskResponses = task.getSubtasks() != null
+            ? task.getSubtasks().stream().map(SubtaskResponse::fromEntity).toList()
+            : Collections.emptyList();
 
         return new TaskResponse(
             task.getId(),
@@ -43,7 +50,8 @@ public record TaskResponse(
             completedCount,
             task.getDeadline(),
             task.getCreatedAt(),
-            task.getCompletedAt()
+            task.getCompletedAt(),
+            subtaskResponses
         );
     }
 }

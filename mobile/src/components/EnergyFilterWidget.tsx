@@ -61,48 +61,38 @@ export const EnergyFilterWidget: React.FC<EnergyFilterWidgetProps> = ({
         </View>
       )}
 
-      {/* Energy Quick-Filter Bar */}
-      <View style={styles.filterSection}>
-        <View style={styles.filterHeader}>
-          <Text style={styles.filterSectionTitle}>Năng lượng nhận thức hiện tại:</Text>
-          {selectedEnergy !== 'ALL' && (
+      {/* Energy Quick-Filter Bar - Clean Segmented Style */}
+      <View style={styles.chipsRow}>
+        {filterOptions.map((opt) => {
+          const isSelected = selectedEnergy === opt.id;
+          return (
             <TouchableOpacity
-              onPress={() => handleSelect('ALL')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={styles.resetBtn}
+              key={opt.id}
+              style={[
+                styles.chip,
+                isSelected && styles.chipSelected,
+                isSelected && { borderColor: opt.activeColor },
+              ]}
+              onPress={() => handleSelect(opt.id)}
+              activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={`Lọc theo mức năng lượng: ${opt.label}`}
             >
-              <Text style={styles.resetFilterText}>Xóa lọc</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.chipsRow}>
-          {filterOptions.map((opt) => {
-            const isSelected = selectedEnergy === opt.id;
-            return (
-              <TouchableOpacity
-                key={opt.id}
+              <Text
                 style={[
-                  styles.chip,
-                  isSelected && styles.chipSelected,
-                  isSelected && { borderColor: opt.activeColor },
+                  styles.chipText,
+                  isSelected && styles.chipTextSelected,
+                  isSelected && { color: opt.activeColor },
                 ]}
-                onPress={() => handleSelect(opt.id)}
-                activeOpacity={0.7}
+                numberOfLines={1}
               >
-                <Text
-                  style={[
-                    styles.chipText,
-                    isSelected && styles.chipTextSelected,
-                    isSelected && { color: opt.activeColor },
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -169,49 +159,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontStyle: 'italic',
   },
-  filterSection: {
-    gap: 8,
-  },
-  filterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  filterSectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-  resetBtn: {
-    minHeight: 24,
-    justifyContent: 'center',
-  },
-  resetFilterText: {
-    fontSize: 11,
-    color: '#38BDF8',
-    fontWeight: '600',
-  },
   chipsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   chip: {
     flex: 1,
-    minHeight: 44, // WCAG Touch target >= 44x44 pt
+    minHeight: 40, // Touch target >= 40pt
     backgroundColor: '#1E293B',
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#334155',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
   },
   chipSelected: {
     backgroundColor: 'rgba(30, 41, 59, 0.95)',
     borderWidth: 1.5,
   },
   chipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#94A3B8',
   },

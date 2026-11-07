@@ -2,6 +2,8 @@ package com.orbit.repository;
 
 import com.orbit.entity.Task;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -27,12 +29,14 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     List<Task> findByUserIdOrderByPositionAsc(UUID userId);
 
     /**
-     * Lấy danh sách nhiệm vụ theo trạng thái và thứ tự vị trí.
+     * Lấy danh sách nhiệm vụ theo trạng thái và thứ tự vị trí, kèm vi bước (eager fetch để tránh N+1).
      */
-    List<Task> findByStatusOrderByPositionAsc(Task.TaskStatus status);
+    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.subtasks WHERE t.status = :status ORDER BY t.position ASC")
+    List<Task> findByStatusOrderByPositionAsc(@Param("status") Task.TaskStatus status);
 
     /**
-     * Lấy toàn bộ nhiệm vụ sắp xếp theo thời điểm tạo mới nhất.
+     * Lấy toàn bộ nhiệm vụ sắp xếp theo thời điểm tạo mới nhất, kèm vi bước (eager fetch để tránh N+1).
      */
+    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.subtasks ORDER BY t.createdAt DESC")
     List<Task> findAllByOrderByCreatedAtDesc();
 }

@@ -46,21 +46,34 @@ export const apiClient = axios.create({
 export const mapTaskResponseToTask = (
   res: TaskResponse,
   existingSubtasks: Subtask[] = []
-): Task => ({
-  id: res.id,
-  boardId: 'board-main',
-  title: res.title,
-  description: res.description,
-  status: res.status,
-  urgency: res.urgency,
-  energyRequired: res.energyRequired,
-  deadline: res.deadline,
-  estimatedMinutes: res.estimatedMinutes,
-  position: res.position ?? 0,
-  subtasks: existingSubtasks,
-  createdAt: res.createdAt,
-  completedAt: res.completedAt,
-});
+): Task => {
+  const mappedSubtasks: Subtask[] = (res.subtasks ?? []).map((s) => ({
+    id: s.id,
+    taskId: s.taskId || res.id,
+    title: s.title,
+    estimatedMinutes: s.estimatedMinutes ?? 15,
+    energyLevel: s.energyLevel ?? 'LOW',
+    stepOrder: s.stepOrder ?? 1,
+    isCompleted: Boolean(s.isCompleted),
+    completedAt: s.completedAt,
+  }));
+
+  return {
+    id: res.id,
+    boardId: 'board-main',
+    title: res.title,
+    description: res.description,
+    status: res.status,
+    urgency: res.urgency,
+    energyRequired: res.energyRequired,
+    deadline: res.deadline,
+    estimatedMinutes: res.estimatedMinutes,
+    position: res.position ?? 0,
+    subtasks: existingSubtasks.length > 0 ? existingSubtasks : mappedSubtasks,
+    createdAt: res.createdAt,
+    completedAt: res.completedAt,
+  };
+};
 
 export const TaskService = {
   /**

@@ -134,6 +134,7 @@ export interface TaskResponse {
   deadline?: string;
   createdAt: string;
   completedAt?: string;
+  subtasks?: SubtaskResponse[];
 }
 
 export interface ApiResponse<T> {

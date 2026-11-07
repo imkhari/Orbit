@@ -4,7 +4,7 @@ import {
   Text,
   View,
   SafeAreaView,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Modal,
   Platform,
@@ -90,7 +90,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
     setShowStreakModal(true);
   };
 
-  // Column definitions
+  // Column definitions - Concise & responsive on mobile screens
   const columns: Array<{ status: TaskStatus; label: string; count: number }> = [
     {
       status: 'BACKLOG',
@@ -104,7 +104,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
     },
     {
       status: 'DOING',
-      label: 'Đang làm (1/1)',
+      label: 'Đang làm',
       count: tasks.filter((t) => t.status === 'DOING').length,
     },
     {
@@ -133,20 +133,15 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* App Header with Streak Shield Widget */}
+      {/* Minimalist App Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.titleRow}>
-            <Text style={styles.headerTitle}>🌌 Orbit</Text>
-            {isLoading && (
-              <View style={styles.syncBadge}>
-                <Text style={styles.syncBadgeText}>Đang đồng bộ...</Text>
-              </View>
-            )}
-          </View>
-          <Text style={styles.headerSubtitle}>
-            Điều phối công việc cho tâm trí ADHD
-          </Text>
+          <Text style={styles.headerTitle}>🌌 Orbit</Text>
+          {isLoading && (
+            <View style={styles.syncBadge}>
+              <Text style={styles.syncBadgeText}>Đồng bộ...</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.headerRight}>
@@ -156,14 +151,14 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
             onPress={handleOpenStreakModal}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Chuỗi ${streak.currentStreak} ngày, ${streak.freezeCredits} Khiên Đóng Băng bảo vệ`}
+            accessibilityHint="Chạm để xem thông tin chi tiết về Khiên Đóng Băng và XP"
           >
-            <View style={styles.streakBadgeItem}>
-              <Text style={styles.streakFireText}>🔥 {streak.currentStreak} ngày</Text>
-            </View>
-            <View style={styles.streakDivider} />
-            <View style={styles.freezeBadgeItem}>
-              <Text style={styles.freezeShieldText}>🛡️ {streak.freezeCredits} Khiên</Text>
-            </View>
+            <Text style={styles.streakCompactText}>
+              🔥 {streak.currentStreak} <Text style={styles.streakDividerDot}>•</Text> 🛡️ {streak.freezeCredits}
+            </Text>
           </TouchableOpacity>
 
           {onNavigateFocus && (
@@ -171,6 +166,10 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
               style={styles.focusHeaderBtn}
               onPress={onNavigateFocus}
               activeOpacity={0.8}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Mở màn hình tập trung đơn nhiệm Focus"
+              accessibilityHint="Chạm để chuyển sang chế độ tập trung với Pomodoro timer"
             >
               <Text style={styles.focusHeaderBtnText}>🎯 Focus</Text>
             </TouchableOpacity>
@@ -252,6 +251,10 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
                 setActiveColumn(col.status);
               }}
               activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={`Cột ${col.label}, ${col.count} nhiệm vụ`}
             >
               <Text
                 style={[
@@ -281,26 +284,35 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
         })}
       </View>
 
-      {/* Task Cards List with Energy-based Rerank, Dimming and Subtask check-off */}
-      <ScrollView
+      {/* Task Cards List with Virtualization, Energy-based Rerank, Dimming and Subtask check-off */}
+      <FlatList
+        data={displayedTasks}
+        keyExtractor={(item) => item.task.id}
         style={styles.taskListContainer}
         contentContainerStyle={styles.taskListContent}
-      >
-        {selectedEnergy !== 'ALL' && (
-          <View style={styles.filterHintBanner}>
-            <Text style={styles.filterHintText}>
-              💡 Đang ưu tiên việc{' '}
-              {selectedEnergy === 'LOW'
-                ? '☕ Thấp'
-                : selectedEnergy === 'MEDIUM'
-                ? '⚡ Vừa'
-                : '🔥 Cao'}
-              . Các việc nặng hơn được xếp dưới và làm mờ để giảm tải nhận thức.
-            </Text>
-          </View>
-        )}
-
-        {displayedTasks.length === 0 ? (
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS !== 'web'}
+        ListHeaderComponent={
+          selectedEnergy !== 'ALL' ? (
+            <View style={styles.filterHintBanner}>
+              <Text style={styles.filterHintText}>
+                💡 Lọc: {selectedEnergy === 'LOW' ? '☕ Thấp' : selectedEnergy === 'MEDIUM' ? '⚡ Vừa' : '🔥 Cao'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setSelectedEnergy('ALL')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Xóa bộ lọc năng lượng"
+              >
+                <Text style={styles.filterClearText}>✕ Đặt lại</Text>
+              </TouchableOpacity>
+            </View>
+          ) : undefined
+        }
+        ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>
               {activeColumn === 'DOING'
@@ -324,21 +336,19 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
                 : 'Nếu có ý nghĩ nào nảy ra, hãy thêm nhanh ở thanh dưới đáy. Orbit sẽ giữ hộ bạn.'}
             </Text>
           </View>
-        ) : (
-          displayedTasks.map(({ task, isDimmed }) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onMoveTask={handleTaskMovement}
-              onOpenAIDecompose={(t) => setDecomposingTask(t)}
-              onFocusTask={handleFocusTaskAction}
-              onToggleSubtask={onToggleSubtask}
-              isDimmed={isDimmed}
-              triggerRollback={propRollbackTaskId === task.id}
-            />
-          ))
+        }
+        renderItem={({ item }) => (
+          <TaskCard
+            task={item.task}
+            onMoveTask={handleTaskMovement}
+            onOpenAIDecompose={(t) => setDecomposingTask(t)}
+            onFocusTask={handleFocusTaskAction}
+            onToggleSubtask={onToggleSubtask}
+            isDimmed={item.isDimmed}
+            triggerRollback={propRollbackTaskId === item.task.id}
+          />
         )}
-      </ScrollView>
+      />
 
       {/* Bottom Quick Capture Bar */}
       <QuickCaptureBar onAddTask={handleQuickAdd} />
@@ -361,27 +371,23 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
-    gap: 8,
   },
   headerLeft: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
   },
   headerTitle: {
     fontSize: 20,
@@ -402,52 +408,33 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '600',
   },
-  headerSubtitle: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 1,
-  },
   streakHeaderWidget: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#1E293B',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#334155',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    minHeight: 44, // WCAG 2.1 AA Touch Target >= 44x44 pt
-    gap: 6,
-  },
-  streakBadgeItem: {
+    paddingVertical: 7,
+    minHeight: 40,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  streakFireText: {
-    color: '#FBBF24', // Sand Amber
+  streakCompactText: {
     fontSize: 12,
     fontWeight: '700',
+    color: '#FBBF24',
   },
-  streakDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: '#334155',
-  },
-  freezeBadgeItem: {
-    justifyContent: 'center',
-  },
-  freezeShieldText: {
-    color: '#818CF8', // Soft Iris / Freeze Shield Token
-    fontSize: 12,
-    fontWeight: '700',
+  streakDividerDot: {
+    color: '#64748B',
   },
   focusHeaderBtn: {
     backgroundColor: '#0284C7',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#38BDF8',
-    minHeight: 44, // WCAG Touch-target >= 44x44 pt
+    minHeight: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -623,17 +610,24 @@ const styles = StyleSheet.create({
   filterHintBanner: {
     backgroundColor: 'rgba(56, 189, 248, 0.08)',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.2)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   filterHintText: {
     color: '#38BDF8',
     fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  filterClearText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
   },
   taskListContainer: {
     flex: 1,

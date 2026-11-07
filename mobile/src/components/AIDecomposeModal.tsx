@@ -301,6 +301,10 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
                     onPress={() => toggleSelect(step.id)}
                     activeOpacity={0.7}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessible={true}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: step.isSelected }}
+                    accessibilityLabel={`Chọn vi bước: ${step.title}`}
                   >
                     {step.isSelected ? (
                       <Text style={styles.checkmark}>✓</Text>
@@ -318,6 +322,8 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
                       onChangeText={(val) => updateTitle(step.id, val)}
                       placeholder="Tiêu đề vi bước..."
                       placeholderTextColor="#64748B"
+                      accessible={true}
+                      accessibilityLabel="Chỉnh sửa tiêu đề vi bước"
                     />
                     <View style={styles.stepMetaRow}>
                       {step.isRecommendedStarter && (

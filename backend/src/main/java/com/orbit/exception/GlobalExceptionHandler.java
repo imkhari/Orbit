@@ -2,6 +2,7 @@ package com.orbit.exception;
 
 import com.orbit.dto.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -39,6 +40,16 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 java.time.Instant.now()
             ));
+    }
+
+    /**
+     * Bắt lỗi vi phạm toàn vẹn dữ liệu Database (Ví dụ: Race condition vi phạm Partial Unique Index WIP = 1).
+     * Trả về HTTP 409 Conflict với thông điệp nhẹ nhàng, trấn an theo công thái học nhận thức ADHD.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("Database data integrity violation intercepted (concurrency/WIP conflict): {}", ex.getMessage());
+        return handleWipLimitExceeded(new WipLimitExceededException());
     }
 
     /**
