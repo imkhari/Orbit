@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Task, EnergyLevel, TaskStatus } from '../types';
+import { Task, EnergyLevel, TaskStatus, Subtask } from '../types';
 
 interface TaskCardProps {
   task: Task;
@@ -25,11 +25,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onMoveTask,
   onOpenAIDecompose,
   onFocusTask,
+  onToggleSubtask,
   isDimmed = false,
   triggerRollback = false,
 }) => {
   // Spring rollback animation for Edge Case 02 (WIP limit violation)
   const translateX = useRef(new Animated.Value(0)).current;
+  const [isSubtasksExpanded, setIsSubtasksExpanded] = useState<boolean>(true);
 
   useEffect(() => {
     if (triggerRollback) {
@@ -74,8 +76,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const energyInfo = getEnergyBadge(task.energyRequired);
-  const completedSubtasks = task.subtasks.filter((s) => s.isCompleted).length;
-  const totalSubtasks = task.subtasks.length;
+  const subtasksList = task.subtasks || [];
+  const completedSubtasks = subtasksList.filter((s) => s.isCompleted).length;
+  const totalSubtasks = subtasksList.length;
+  const progressPercent =
+    totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+
+  const handleSubtaskPress = (subtaskId: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    if (onToggleSubtask) {
+      onToggleSubtask(task.id, subtaskId);
+    }
+  };
 
   // Compute next action label based on status
   const renderStatusAction = () => {
@@ -113,7 +127,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.revertBtnText}>← Trả lại Cần làm</Text>
+              <Text style={styles.revertBtnText}>← Trả lại</Text>
             </TouchableOpacity>
 
             {onFocusTask && (
@@ -183,13 +197,88 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         ) : null}
 
         {totalSubtasks > 0 ? (
-          <View style={styles.metaBadge}>
+          <TouchableOpacity
+            style={styles.metaBadge}
+            onPress={() => setIsSubtasksExpanded((prev) => !prev)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Text style={styles.metaText}>
-              📋 {completedSubtasks}/{totalSubtasks} bước
+              📋 {completedSubtasks}/{totalSubtasks} vi bước {isSubtasksExpanded ? '▾' : '▸'}
             </Text>
-          </View>
+          </TouchableOpacity>
         ) : null}
       </View>
+
+      {/* Progress Bar & Subtask Check-off Section */}
+      {totalSubtasks > 0 && (
+        <View style={styles.subtasksContainer}>
+          {/* Progress Header and Bar */}
+          <View style={styles.progressHeaderRow}>
+            <Text style={styles.progressTitle}>Tiến độ vi bước:</Text>
+            <Text style={styles.progressPercentText}>
+              {completedSubtasks}/{totalSubtasks} ({progressPercent}%)
+            </Text>
+          </View>
+          <View style={styles.progressBarTrack}>
+            <View
+              style={[
+                styles.progressBarFill,
+                { width: `${progressPercent}%` },
+                progressPercent === 100 && styles.progressBarFillComplete,
+              ]}
+            />
+          </View>
+
+          {/* Expanded Micro-steps checklist */}
+          {isSubtasksExpanded && (
+            <View style={styles.subtasksList}>
+              {subtasksList.map((sub: Subtask) => (
+                <TouchableOpacity
+                  key={sub.id}
+                  style={[
+                    styles.subtaskRow,
+                    sub.isCompleted && styles.subtaskRowCompleted,
+                  ]}
+                  onPress={() => handleSubtaskPress(sub.id)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      sub.isCompleted && styles.checkboxChecked,
+                    ]}
+                  >
+                    {sub.isCompleted && (
+                      <Text style={styles.checkmarkIcon}>✓</Text>
+                    )}
+                  </View>
+
+                  <View style={styles.subtaskContent}>
+                    <Text
+                      style={[
+                        styles.subtaskTitle,
+                        sub.isCompleted && styles.subtaskTitleCompleted,
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {sub.title}
+                    </Text>
+                    <View style={styles.subtaskMetaRow}>
+                      <Text style={styles.subtaskMetaText}>
+                        ⏱️ {sub.estimatedMinutes}m
+                      </Text>
+                      <Text style={styles.subtaskMetaText}>
+                        • {sub.energyLevel === 'LOW' ? '☕ Nhẹ' : sub.energyLevel === 'MEDIUM' ? '⚡ Vừa' : '🔥 Sâu'}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Actions footer */}
       <View style={styles.footerRow}>
@@ -258,7 +347,7 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
     gap: 8,
   },
   metaBadge: {
@@ -272,6 +361,107 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 11,
     color: '#CBD5E1',
+    fontWeight: '500',
+  },
+  subtasksContainer: {
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.5)',
+  },
+  progressHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  progressTitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  progressPercentText: {
+    fontSize: 11,
+    color: '#38BDF8',
+    fontWeight: '700',
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: '#334155',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#38BDF8',
+    borderRadius: 3,
+  },
+  progressBarFillComplete: {
+    backgroundColor: '#34D399', // Mint Emerald
+  },
+  subtasksList: {
+    gap: 6,
+    marginTop: 4,
+  },
+  subtaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 44, // WCAG 2.1 AA touch target >= 44x44 pt
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.4)',
+  },
+  subtaskRowCompleted: {
+    backgroundColor: 'rgba(5, 150, 105, 0.08)',
+    borderColor: 'rgba(5, 150, 105, 0.25)',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#64748B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: '#059669',
+    borderColor: '#059669',
+  },
+  checkmarkIcon: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  subtaskContent: {
+    flex: 1,
+  },
+  subtaskTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F8FAFC',
+    lineHeight: 18,
+  },
+  subtaskTitleCompleted: {
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+  },
+  subtaskMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  subtaskMetaText: {
+    fontSize: 10,
+    color: '#64748B',
     fontWeight: '500',
   },
   footerRow: {

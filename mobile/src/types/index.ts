@@ -18,6 +18,7 @@ export interface Subtask {
   energyLevel: EnergyLevel;
   stepOrder: number;
   isCompleted: boolean;
+  completedAt?: string;
 }
 
 export interface Task {
@@ -51,15 +52,71 @@ export interface Board {
   columns: KanbanColumn[];
 }
 
+export interface SuggestedSubtask {
+  stepOrder: number;
+  title: string;
+  estimatedMinutes: number;
+  energyLevel: EnergyLevel;
+  isRecommendedStarter?: boolean;
+}
+
 export interface AIDecomposeResponse {
   taskId: string;
-  estimatedTotalMinutes: number;
-  suggestedSubtasks: Array<{
-    stepOrder: number;
+  estimatedTotalMinutes?: number;
+  isFallback?: boolean;
+  reasoningSummary?: string;
+  suggestedSubtasks: SuggestedSubtask[];
+}
+
+export interface SubtaskResponse {
+  id: string;
+  taskId: string;
+  title: string;
+  estimatedMinutes: number;
+  energyLevel: EnergyLevel;
+  stepOrder: number;
+  isCompleted: boolean;
+  completedAt?: string;
+}
+
+export interface BulkSubtasksRequest {
+  subtasks: Array<{
     title: string;
-    estimatedMinutes: number;
-    energyLevel: EnergyLevel;
+    estimatedMinutes?: number;
+    energyLevel?: EnergyLevel;
+    stepOrder?: number;
+    isCompleted?: boolean;
   }>;
+}
+
+export interface StreakResponse {
+  userId?: string;
+  currentStreak: number;
+  longestStreak: number;
+  freezeCredits: number;
+  streakState: 'ACTIVE' | 'FROZEN' | 'RESET';
+  totalXp: number;
+  currentLevel: number;
+  isFrozenToday?: boolean;
+  lastActiveDate?: string;
+  gentleMessage?: string;
+}
+
+export interface FocusSessionResponse {
+  id: string;
+  taskId?: string;
+  taskTitle?: string;
+  durationMinutes: number;
+  isCompleted: boolean;
+  earnedXp: number;
+  completedAt?: string;
+  createdAt?: string;
+}
+
+export interface LogFocusSessionRequest {
+  taskId: string;
+  durationMinutes: number;
+  isCompleted?: boolean;
 }
 
 export interface TaskResponse {

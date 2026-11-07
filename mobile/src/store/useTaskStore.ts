@@ -3,8 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Task, TaskStatus, EnergyLevel, Subtask } from '../types';
-import { TaskService } from '../services/api';
+import { Task, TaskStatus, EnergyLevel, Subtask, StreakResponse } from '../types';
+import { TaskService, StreakService } from '../services/api';
 
 export interface ToastNotificationState {
   visible: boolean;
@@ -12,8 +12,20 @@ export interface ToastNotificationState {
   type: 'info' | 'warning' | 'success';
 }
 
+export interface StreakState {
+  currentStreak: number;
+  longestStreak: number;
+  freezeCredits: number;
+  streakState: 'ACTIVE' | 'FROZEN' | 'RESET';
+  totalXp: number;
+  currentLevel: number;
+  isFrozenToday: boolean;
+  gentleMessage?: string;
+}
+
 export interface TaskStoreState {
   tasks: Task[];
+  streak: StreakState;
   isLoading: boolean;
   error: string | null;
   rollbackTaskId: string | null;
@@ -21,19 +33,32 @@ export interface TaskStoreState {
 
   // Actions
   fetchTasks: () => Promise<void>;
+  fetchStreak: () => Promise<void>;
   addTask: (title: string, energy?: EnergyLevel) => Promise<void>;
   moveTask: (taskId: string, targetStatus: TaskStatus) => Promise<boolean>;
-  toggleSubtask: (taskId: string, subtaskId: string) => void;
-  applySubtasks: (taskId: string, newSubtasks: Subtask[]) => void;
+  toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  applySubtasks: (taskId: string, newSubtasks: Subtask[]) => Promise<void>;
   completeTask: (taskId: string) => Promise<void>;
   showToast: (message: string, type?: 'info' | 'warning' | 'success') => void;
   hideToast: () => void;
 }
 
+const DEFAULT_STREAK: StreakState = {
+  currentStreak: 5,
+  longestStreak: 5,
+  freezeCredits: 2,
+  streakState: 'ACTIVE',
+  totalXp: 150,
+  currentLevel: 1,
+  isFrozenToday: false,
+  gentleMessage: 'Mỗi bước nhỏ đều tạo nên bước nhảy lớn 🌿',
+};
+
 export const useTaskStore = create<TaskStoreState>()(
   persist(
     (set, get) => ({
       tasks: [],
+      streak: DEFAULT_STREAK,
       isLoading: false,
       error: null,
       rollbackTaskId: null,
@@ -45,6 +70,7 @@ export const useTaskStore = create<TaskStoreState>()(
 
       /**
        * 1. fetchTasks(): Gọi API lấy dữ liệu; nếu mất mạng thì giữ nguyên dữ liệu trong AsyncStorage cache.
+       * Đồng thời đồng bộ trạng thái Streak và Khiên Bảo Vệ.
        */
       fetchTasks: async () => {
         set({ isLoading: true, error: null });
@@ -52,17 +78,28 @@ export const useTaskStore = create<TaskStoreState>()(
           const fetchedTasks = await TaskService.getTasks();
           const currentTasks = get().tasks;
 
-          // Hợp nhất dữ liệu server với cache địa phương, bảo tồn subtasks
-          const mergedTasks: Task[] = fetchedTasks.map((ft) => {
-            const localMatch = currentTasks.find((t) => t.id === ft.id);
-            return {
-              ...ft,
-              subtasks:
-                localMatch && localMatch.subtasks && localMatch.subtasks.length > 0
-                  ? localMatch.subtasks
-                  : ft.subtasks,
-            };
-          });
+          // Hợp nhất dữ liệu server với cache địa phương, bảo tồn subtasks đã có
+          const mergedTasks: Task[] = await Promise.all(
+            fetchedTasks.map(async (ft) => {
+              const localMatch = currentTasks.find((t) => t.id === ft.id);
+              if (localMatch && localMatch.subtasks && localMatch.subtasks.length > 0) {
+                return {
+                  ...ft,
+                  subtasks: localMatch.subtasks,
+                };
+              }
+              // Nếu server báo có subtasks mà local chưa có, tải về
+              try {
+                const subtasks = await TaskService.getSubtasks(ft.id);
+                return {
+                  ...ft,
+                  subtasks,
+                };
+              } catch {
+                return ft;
+              }
+            })
+          );
 
           // Giữ lại các task tạo tạm thời lúc offline chưa đồng bộ
           const pendingOfflineTasks = currentTasks.filter((t) => t.id.startsWith('temp-'));
@@ -72,6 +109,9 @@ export const useTaskStore = create<TaskStoreState>()(
             isLoading: false,
             error: null,
           });
+
+          // Tải thêm trạng thái Streak song song
+          get().fetchStreak();
         } catch (err: any) {
           // Khi mất mạng: giữ nguyên dữ liệu trong AsyncStorage cache, không xóa trắng
           const errorMessage =
@@ -81,6 +121,29 @@ export const useTaskStore = create<TaskStoreState>()(
             isLoading: false,
             error: errorMessage,
           });
+        }
+      },
+
+      /**
+       * fetchStreak(): Lấy thông tin Streak & Freeze Shield từ GET /api/v1/users/me/streak
+       */
+      fetchStreak: async () => {
+        try {
+          const data: StreakResponse = await StreakService.getStreak();
+          set({
+            streak: {
+              currentStreak: data.currentStreak ?? 5,
+              longestStreak: data.longestStreak ?? 5,
+              freezeCredits: data.freezeCredits ?? 2,
+              streakState: data.streakState ?? 'ACTIVE',
+              totalXp: data.totalXp ?? 150,
+              currentLevel: data.currentLevel ?? 1,
+              isFrozenToday: Boolean(data.isFrozenToday),
+              gentleMessage: data.gentleMessage ?? 'Mỗi bước nhỏ đều tạo nên bước nhảy lớn 🌿',
+            },
+          });
+        } catch (err: any) {
+          console.warn('fetchStreak offline fallback: giữ nguyên cache streak', err?.message);
         }
       },
 
@@ -166,6 +229,12 @@ export const useTaskStore = create<TaskStoreState>()(
               t.id === taskId ? { ...updated, subtasks: t.subtasks } : t
             ),
           }));
+
+          // Nếu hoàn thành task sang DONE, đồng bộ lại điểm XP và Streak
+          if (targetStatus === 'DONE') {
+            get().fetchStreak();
+          }
+
           return true;
         } catch (err: any) {
           const isWipConflict =
@@ -234,12 +303,17 @@ export const useTaskStore = create<TaskStoreState>()(
 
       /**
        * 4. toggleSubtask(taskId, subtaskId): Cập nhật trạng thái hoàn thành vi bước.
+       * - Phản hồi xúc giác Medium impact (Dopamine Ignition tức thì)
+       * - Optimistic Update trên UI
+       * - Gọi API PATCH /api/v1/tasks/{taskId}/subtasks/{subtaskId}/toggle ngầm
        */
-      toggleSubtask: (taskId: string, subtaskId: string) => {
+      toggleSubtask: async (taskId: string, subtaskId: string) => {
+        // Dopamine Ignition haptic feedback ngay tức thì (<50ms)
         if (Platform.OS !== 'web') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
 
+        // Cập nhật lạc quan (Optimistic update)
         set((state) => ({
           tasks: state.tasks.map((t) => {
             if (t.id !== taskId) return t;
@@ -252,24 +326,65 @@ export const useTaskStore = create<TaskStoreState>()(
             };
           }),
         }));
+
+        // Gọi API đồng bộ ngầm lên server
+        try {
+          await TaskService.toggleSubtask(taskId, subtaskId);
+          // Cập nhật lại streak/XP vì backend thưởng +5 XP cho mỗi vi bước hoàn thành
+          get().fetchStreak();
+        } catch (err: any) {
+          console.warn('toggleSubtask offline sync (bảo lưu trạng thái local):', err?.message);
+        }
       },
 
       /**
-       * Áp dụng các vi bước được đề xuất từ AI Decomposition
+       * Áp dụng các vi bước được đề xuất từ AI Decomposition:
+       * - Gọi API TaskService.applySubtasks để lưu bulk vào Database
+       * - Đồng bộ dữ liệu có server UUID vào Zustand và TaskCard
        */
-      applySubtasks: (taskId: string, newSubtasks: Subtask[]) => {
+      applySubtasks: async (taskId: string, newSubtasks: Subtask[]) => {
+        const totalMinutes = newSubtasks.reduce((sum, s) => sum + s.estimatedMinutes, 0);
+
+        // Cập nhật lạc quan: thiết lập danh sách vi bước mới đã được phê duyệt
         set((state) => ({
           tasks: state.tasks.map((t) => {
             if (t.id !== taskId) return t;
-            const mergedSubtasks = [...t.subtasks, ...newSubtasks];
-            const addedMinutes = newSubtasks.reduce((sum, s) => sum + s.estimatedMinutes, 0);
             return {
               ...t,
-              subtasks: mergedSubtasks,
-              estimatedMinutes: (t.estimatedMinutes || 0) + addedMinutes,
+              subtasks: newSubtasks,
+              estimatedMinutes: totalMinutes > 0 ? totalMinutes : t.estimatedMinutes,
             };
           }),
         }));
+
+        // Gọi đồng bộ lên server
+        try {
+          const result = await TaskService.applySubtasks(taskId, newSubtasks);
+          set((state) => ({
+            tasks: state.tasks.map((t) => {
+              if (t.id !== taskId) return t;
+              return {
+                ...t,
+                subtasks: result.subtasks,
+                estimatedMinutes: result.task.estimatedMinutes ?? t.estimatedMinutes,
+              };
+            }),
+            toast: {
+              visible: true,
+              message: '✨ Đã lưu các vi bước vào nhiệm vụ thành công!',
+              type: 'success',
+            },
+          }));
+        } catch (err: any) {
+          console.warn('applySubtasks offline sync (bảo lưu cục bộ):', err?.message);
+          set({
+            toast: {
+              visible: true,
+              message: '🌿 Đã lưu tạm các vi bước trên thiết bị.',
+              type: 'info',
+            },
+          });
+        }
       },
 
       /**
@@ -314,9 +429,10 @@ export const useTaskStore = create<TaskStoreState>()(
     {
       name: 'orbit-task-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      // Chỉ lưu danh sách tasks vào AsyncStorage cache, không cache trạng thái loading/toast tạm thời
+      // Lưu danh sách tasks và streak vào AsyncStorage cache
       partialize: (state) => ({
         tasks: state.tasks,
+        streak: state.streak,
       }),
     }
   )

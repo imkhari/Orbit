@@ -5,8 +5,8 @@ import {
   Text,
   TouchableOpacity,
   SafeAreaView,
-  StatusBar,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { BoardScreen } from './src/screens/BoardScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
 import { NotificationToast } from './src/components/NotificationToast';
@@ -20,6 +20,7 @@ export default function App() {
   // Quản lý trạng thái toàn cục với Zustand + AsyncStorage Cache
   const {
     tasks,
+    streak,
     isLoading,
     fetchTasks,
     addTask,
@@ -32,7 +33,7 @@ export default function App() {
     hideToast,
   } = useTaskStore();
 
-  // Đồng bộ danh sách nhiệm vụ từ backend ngay khi mở app
+  // Đồng bộ danh sách nhiệm vụ và streak từ backend ngay khi mở app
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
@@ -42,7 +43,7 @@ export default function App() {
 
   return (
     <View style={styles.appRoot}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar style="light" />
 
       {/* Floating Empathetic Toast Notification for WIP=1 and System notices */}
       <NotificationToast
@@ -61,9 +62,11 @@ export default function App() {
         ) : currentScreen === 'BOARD' ? (
           <BoardScreen
             tasks={tasks}
+            streak={streak}
             onMoveTask={moveTask}
             onQuickAdd={addTask}
             onApplySubtasks={applySubtasks}
+            onToggleSubtask={toggleSubtask}
             onNavigateFocus={() => setCurrentScreen('FOCUS')}
             onFocusTask={async (task: Task) => {
               if (task.status !== 'DOING') {
