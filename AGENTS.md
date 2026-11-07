@@ -11,7 +11,7 @@
 - **Mission:** Cognitive orthotic & task orchestration system engineered specifically for individuals with **Attention Deficit Hyperactivity Disorder (ADHD)** and **Executive Dysfunction** (Analysis Paralysis, Time Blindness, Working Memory Decay).
 - **Core Stacks:**
   - **Backend:** Spring Boot 3.x (Java 17/21), Spring Data JPA, Spring AI, PostgreSQL 15, Spring Security 6 + JWT.
-  - **Mobile Client:** React Native (Expo SDK 51), TypeScript, Zustand, TanStack Query, React Native Reanimated.
+  - **Mobile Client:** React Native (Expo SDK 58), TypeScript, Zustand, TanStack Query, React Native Reanimated.
   - **AI Engine:** Google Gemini 1.5 Flash via Spring AI (JSON Structured Output Mode).
 
 ---

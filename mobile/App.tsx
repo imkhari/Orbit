@@ -5,8 +5,8 @@ import {
   Text,
   TouchableOpacity,
   SafeAreaView,
-  StatusBar,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { BoardScreen } from './src/screens/BoardScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
 import { NotificationToast } from './src/components/NotificationToast';
@@ -43,7 +43,7 @@ export default function App() {
 
   return (
     <View style={styles.appRoot}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar style="light" />
 
       {/* Floating Empathetic Toast Notification for WIP=1 and System notices */}
       <NotificationToast
