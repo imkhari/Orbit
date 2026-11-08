@@ -85,13 +85,17 @@ public class TaskController {
 
     /**
      * Ghi nhận nhiệm vụ tức thời vào Backlog (Instant Task Capture <5s).
+     * Hỗ trợ Edge Case 05: Tự động chia tách tiêu đề dài mà không làm gián đoạn dòng suy nghĩ.
      */
     @PostMapping
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(@Valid @RequestBody CreateTaskRequest request) {
         log.info("REST request to create task: '{}'", request.title());
         TaskResponse response = taskService.createTask(request);
+        String message = (request.title().trim().length() > 100)
+            ? "Orbit đã giúp bạn tóm gọn tiêu đề và lưu phần chi tiết còn lại vào mục ghi chú rồi nhé! 🌿"
+            : "Nhiệm vụ đã được ghi nhận an toàn vào Backlog!";
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(ApiResponse.ok(response, "Nhiệm vụ đã được ghi nhận an toàn vào Backlog!"));
+            .body(ApiResponse.ok(response, message));
     }
 
     /**
@@ -108,17 +112,28 @@ public class TaskController {
     }
 
     /**
-     * Lấy danh sách nhiệm vụ (hỗ trợ lọc theo trạng thái cột Kanban).
+     * Lấy danh sách nhiệm vụ (hỗ trợ lọc theo trạng thái cột Kanban và mức năng lượng nhận thức).
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getTasks(
-        @RequestParam(required = false) Task.TaskStatus status
+        @RequestParam(required = false) Task.TaskStatus status,
+        @RequestParam(required = false) Task.EnergyRequirement userEnergy,
+        @RequestParam(required = false, defaultValue = "false") Boolean sortByPriority
     ) {
-        List<TaskResponse> tasks = (status != null)
-            ? taskService.getTasksByStatus(status)
-            : taskService.getAllTasks();
-
+        List<TaskResponse> tasks = taskService.getTasks(status, userEnergy, sortByPriority);
         return ResponseEntity.ok(ApiResponse.ok(tasks, "Lấy danh sách nhiệm vụ thành công"));
+    }
+
+    /**
+     * Lấy danh sách nhiệm vụ đã được tính toán điểm ưu tiên và sắp xếp thích ứng theo mức năng lượng não bộ (Epic 5 & Edge Case 06).
+     */
+    @GetMapping("/prioritized")
+    public ResponseEntity<ApiResponse<List<TaskResponse>>> getPrioritizedTasks(
+        @RequestParam(required = false, defaultValue = "MEDIUM") Task.EnergyRequirement userEnergy,
+        @RequestParam(required = false, defaultValue = "TODO") Task.TaskStatus status
+    ) {
+        List<TaskResponse> tasks = taskService.getTasks(status, userEnergy, true);
+        return ResponseEntity.ok(ApiResponse.ok(tasks, "Danh sách nhiệm vụ đã được sắp xếp ưu tiên theo thể trạng năng lượng"));
     }
 
     /**
