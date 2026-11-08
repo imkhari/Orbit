@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
@@ -37,6 +38,9 @@ class TaskServiceTest {
 
     @Mock
     private com.orbit.service.StreakService streakService;
+
+    @Spy
+    private com.orbit.service.engine.EnergyPrioritizationEngine energyPrioritizationEngine = new com.orbit.service.engine.EnergyPrioritizationEngine();
 
     @InjectMocks
     private TaskServiceImpl taskService;
@@ -135,5 +139,59 @@ class TaskServiceTest {
         assertThat(response.status()).isEqualTo(Task.TaskStatus.DONE);
         assertThat(response.completedAt()).isNotNull();
         verify(streakService, times(1)).recordActivity(mockUser.getId(), 10);
+    }
+
+    @Test
+    @DisplayName("Edge Case 05: Dán văn bản cực dài (>255 ký tự) -> Tự động cắt <= 100 ký tự làm Title, phần còn lại đưa vào Description")
+    void createTask_LongTitle_AutoSplitsTitleAndPrependDescription() {
+        String longText = "Nghiên cứu kiến trúc vi dịch vụ và xử lý nhận thức ADHD: " +
+                "Đây là một đoạn ghi chú cực dài mà người dùng dán nhầm vào ô tiêu đề Instant Capture. " +
+                "Nội dung này bao gồm nhiều phân tích chi tiết về tâm lý học, phản ứng dopamine, và cách giảm tải nhận thức cho người dùng.";
+
+        CreateTaskRequest request = new CreateTaskRequest(
+                longText,
+                "Ghi chú bổ sung ban đầu",
+                Task.EnergyRequirement.HIGH,
+                60,
+                Task.UrgencyLevel.HIGH,
+                mockUser.getId()
+        );
+
+        when(userRepository.findById(mockUser.getId())).thenReturn(Optional.of(mockUser));
+        when(taskRepository.save(any(Task.class))).thenAnswer(i -> {
+            Task t = i.getArgument(0);
+            t.setId(UUID.randomUUID());
+            return t;
+        });
+
+        TaskResponse response = taskService.createTask(request);
+
+        assertThat(response).isNotNull();
+        // Tiêu đề được cắt gọn gàng <= 100 ký tự
+        assertThat(response.title().length()).isLessThanOrEqualTo(100);
+        assertThat(response.title()).contains("Nghiên cứu kiến trúc");
+        // Phần còn lại được đưa vào description
+        assertThat(response.description()).contains("dán nhầm vào ô tiêu đề Instant Capture");
+        assertThat(response.description()).contains("Ghi chú bổ sung ban đầu");
+    }
+
+    @Test
+    @DisplayName("Edge Case 10: Chuyển task từ DONE ngược về TODO -> Giữ nguyên số điểm XP cũ (Zero Penalty)")
+    void updateTaskStatus_DoneToTodo_PreservesXpWithoutPenalty() {
+        mockTask.setStatus(Task.TaskStatus.DONE);
+        mockTask.setCompletedAt(Instant.now());
+
+        UpdateTaskStatusRequest request = new UpdateTaskStatusRequest(Task.TaskStatus.TODO);
+
+        when(taskRepository.findById(mockTask.getId())).thenReturn(Optional.of(mockTask));
+        when(taskRepository.save(any(Task.class))).thenAnswer(i -> i.getArgument(0));
+
+        TaskResponse response = taskService.updateTaskStatus(mockTask.getId(), request);
+
+        assertThat(response.status()).isEqualTo(Task.TaskStatus.TODO);
+        assertThat(response.completedAt()).isNull();
+
+        // Đảm bảo không gọi trừ điểm hay phạt người dùng
+        verify(streakService, never()).recordActivity(eq(mockUser.getId()), intThat(xp -> xp < 0));
     }
 }

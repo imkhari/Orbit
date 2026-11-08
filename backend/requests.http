@@ -280,4 +280,59 @@ Accept: application/json
 # Curl tương đương:
 # curl -X GET http://localhost:8080/api/v1/focus/sessions/today
 
+### ==============================================================================
+### PHẦN MỚI: BỘ NÃO ƯU TIÊN THÍCH ỨNG NĂNG LƯỢNG & CÁC EDGE CASES NHẬN THỨC ADHD
+### ==============================================================================
+
+### 18. Edge Case 05: Tạo Task bằng văn bản dài (Instant Capture Auto-Split)
+### Người dùng ADHD dán cả đoạn văn dài (> 100 ký tự) vào title
+### Kỳ vọng: Không ném lỗi 400. Tự động cắt <= 100 ký tự làm title, phần còn lại đưa vào description.
+### Message phản hồi: "Orbit đã giúp bạn tóm gọn tiêu đề và lưu phần chi tiết còn lại vào mục ghi chú rồi nhé! 🌿"
+# @name createLongTextTask
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+
+{
+  "title": "Nghiên cứu kiến trúc Event-Driven với Apache Kafka và Debezium CDC để đồng bộ dữ liệu Real-time giữa các microservices một cách tin cậy và không bị mất mát thông điệp khi có sự cố mạng xảy ra",
+  "description": "Ghi chú ban đầu nếu có",
+  "energyRequired": "HIGH",
+  "estimatedMinutes": 60
+}
+
+###
+# Curl tương đương:
+# curl -X POST http://localhost:8080/api/v1/tasks \
+#   -H "Content-Type: application/json" \
+#   -d '{"title": "Nghiên cứu kiến trúc Event-Driven với Apache Kafka và Debezium CDC...", "energyRequired": "HIGH", "estimatedMinutes": 60}'
+
+### ------------------------------------------------------------------------------
+### 19. Epic 5 & Edge Case 06: Lấy danh sách nhiệm vụ ưu tiên theo mức năng lượng hiện tại
+### Thử nghiệm: Người dùng đang ở thể trạng LOW (☕ Kiệt sức)
+### Kỳ vọng: Danh sách sắp xếp giảm dần theo priorityScore P(T). Task HIGH được đánh dấu isDimmed: true để UI làm mờ 35%.
+GET {{baseUrl}}/tasks/prioritized?userEnergy=LOW
+Accept: application/json
+
+###
+# Curl tương đương:
+# curl -X GET "http://localhost:8080/api/v1/tasks/prioritized?userEnergy=LOW"
+
+### ------------------------------------------------------------------------------
+### 20. Edge Case 10: Khôi phục Task từ DONE về TODO (Zero Penalty Rollback)
+### Kéo task từ DONE trở lại TODO mà TUYỆT ĐỐI không trừ điểm XP đã tích lũy
+@completedTaskId = {{createLargeTask.response.body.data.id}}
+
+PATCH {{baseUrl}}/tasks/{{completedTaskId}}/status
+Content-Type: application/json
+
+{
+  "status": "TODO"
+}
+
+###
+# Curl tương đương:
+# curl -X PATCH http://localhost:8080/api/v1/tasks/<TASK_ID>/status \
+#   -H "Content-Type: application/json" \
+#   -d '{"status": "TODO"}'
+
+
 
