@@ -9,7 +9,9 @@ import com.orbit.exception.ResourceNotFoundException;
 import com.orbit.exception.WipLimitExceededException;
 import com.orbit.repository.TaskRepository;
 import com.orbit.repository.UserRepository;
+import com.orbit.service.StreakService;
 import com.orbit.service.TaskService;
+import com.orbit.service.engine.EnergyPrioritizationEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,19 +29,42 @@ public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
-    private final com.orbit.service.StreakService streakService;
+    private final StreakService streakService;
+    private final EnergyPrioritizationEngine energyPrioritizationEngine;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public TaskResponse createTask(CreateTaskRequest request) {
-        log.info("Creating new task: '{}' with energy: {}", request.title(), request.energyRequiredOrDefault());
+        log.info("Creating new task with energy: {}", request.energyRequiredOrDefault());
 
         User user = resolveUser(request.userId());
 
+        String rawTitle = request.title().trim();
+        String title = rawTitle;
+        String description = request.description();
+
+        // Edge Case 05: Tự động chia tách văn bản dài khi Instant Capture mà không làm đứt mạch cảm xúc < 5s
+        if (rawTitle.length() > 100) {
+            int splitIndex = 100;
+            int lastSpace = rawTitle.substring(0, 100).lastIndexOf(' ');
+            if (lastSpace > 30) {
+                splitIndex = lastSpace;
+            }
+            title = rawTitle.substring(0, splitIndex).trim();
+            String remainder = rawTitle.substring(splitIndex).trim();
+            if (description != null && !description.isBlank()) {
+                description = remainder + "\n\n" + description.trim();
+            } else {
+                description = remainder;
+            }
+            log.info("Edge Case 05 applied: Auto-split raw text from {} chars into title ({} chars) and description",
+                    rawTitle.length(), title.length());
+        }
+
         Task task = Task.builder()
             .user(user)
-            .title(request.title().trim())
-            .description(request.description())
+            .title(title)
+            .description(description)
             .energyRequired(request.energyRequiredOrDefault())
             .urgency(request.urgencyOrDefault())
             .estimatedMinutes(request.estimatedMinutes())
@@ -49,7 +74,7 @@ public class TaskServiceImpl implements TaskService {
             .build();
 
         Task saved = taskRepository.save(task);
-        log.info("Task created successfully with ID: {}", saved.getId());
+        log.info("Task created successfully with ID: '{}' (Title: '{}')", saved.getId(), saved.getTitle());
         return TaskResponse.fromEntity(saved);
     }
 
@@ -84,6 +109,8 @@ public class TaskServiceImpl implements TaskService {
             }
         } else if (targetStatus != Task.TaskStatus.DONE) {
             task.setCompletedAt(null);
+            // Edge Case 10: Không trừ điểm XP khi kéo ngược từ DONE về hàng đợi (Zero Penalty Policy)
+            log.info("Edge Case 10: Task ID {} moved back from DONE to {}. Preserving all previously awarded XP.", taskId, targetStatus);
         }
 
         task.setStatus(targetStatus);
@@ -95,22 +122,34 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public TaskResponse getTaskById(UUID taskId) {
         return taskRepository.findById(taskId)
-            .map(TaskResponse::fromEntity)
+            .map(task -> {
+                double pScore = energyPrioritizationEngine.calculatePriorityScore(task, task.getEnergyRequired(), Instant.now());
+                boolean overdue = energyPrioritizationEngine.isOverdue(task, Instant.now());
+                boolean dimmed = energyPrioritizationEngine.isDimmed(task, task.getEnergyRequired());
+                return TaskResponse.fromEntity(task, pScore, overdue, dimmed);
+            })
             .orElseThrow(() -> new ResourceNotFoundException("Nhiệm vụ", taskId));
     }
 
     @Override
     public List<TaskResponse> getAllTasks() {
-        return taskRepository.findAllByOrderByCreatedAtDesc().stream()
-            .map(TaskResponse::fromEntity)
-            .toList();
+        List<Task> tasks = taskRepository.findAllByOrderByCreatedAtDesc();
+        return energyPrioritizationEngine.prioritizeAndMap(tasks, null, false);
     }
 
     @Override
     public List<TaskResponse> getTasksByStatus(Task.TaskStatus status) {
-        return taskRepository.findByStatusOrderByPositionAsc(status).stream()
-            .map(TaskResponse::fromEntity)
-            .toList();
+        List<Task> tasks = taskRepository.findByStatusOrderByPositionAsc(status);
+        return energyPrioritizationEngine.prioritizeAndMap(tasks, null, false);
+    }
+
+    @Override
+    public List<TaskResponse> getTasks(Task.TaskStatus status, Task.EnergyRequirement userEnergy, Boolean sortByPriority) {
+        List<Task> rawTasks = (status != null)
+                ? taskRepository.findByStatusOrderByPositionAsc(status)
+                : taskRepository.findAllByOrderByCreatedAtDesc();
+
+        return energyPrioritizationEngine.prioritizeAndMap(rawTasks, userEnergy, Boolean.TRUE.equals(sortByPriority));
     }
 
     @Override

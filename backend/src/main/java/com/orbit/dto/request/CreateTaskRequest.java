@@ -13,10 +13,10 @@ import java.util.UUID;
  */
 public record CreateTaskRequest(
     @NotBlank(message = "Tiêu đề nhiệm vụ không được để trống")
-    @Size(min = 2, max = 255, message = "Tiêu đề nhiệm vụ phải từ 2 đến 255 ký tự")
+    @Size(min = 1, max = 5000, message = "Nội dung nhập liệu không được vượt quá 5000 ký tự")
     String title,
 
-    @Size(max = 2000, message = "Mô tả không được vượt quá 2000 ký tự")
+    @Size(max = 5000, message = "Mô tả không được vượt quá 5000 ký tự")
     String description,
 
     Task.EnergyRequirement energyRequired,
