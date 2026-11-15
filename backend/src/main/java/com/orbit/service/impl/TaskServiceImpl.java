@@ -177,6 +177,12 @@ public class TaskServiceImpl implements TaskService {
             return userRepository.findById(userId).orElse(null);
         }
 
+        org.springframework.security.core.Authentication auth =
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof User user) {
+            return user;
+        }
+
         // Tạo hoặc lấy Demo User mặc định để bảo toàn khóa ngoại user_id
         return userRepository.findByEmail("demo@orbit.app").orElseGet(() ->
             userRepository.save(User.builder()

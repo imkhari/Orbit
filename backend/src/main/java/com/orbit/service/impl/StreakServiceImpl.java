@@ -30,7 +30,7 @@ public class StreakServiceImpl implements StreakService {
         User user = resolveUser(userId);
         StreakHistory history = getOrCreateStreakHistory(user);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = resolveToday();
         String message = evaluateAndApplyFreezeShield(history, today);
 
         return StreakResponse.fromEntity(history, message);
@@ -42,7 +42,7 @@ public class StreakServiceImpl implements StreakService {
         User user = resolveUser(userId);
         StreakHistory history = getOrCreateStreakHistory(user);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = resolveToday();
         evaluateAndApplyFreezeShield(history, today);
 
         // 1. Cộng XP và tính toán lại level (Zero Penalty: không bao giờ trừ điểm)
@@ -160,10 +160,35 @@ public class StreakServiceImpl implements StreakService {
         );
     }
 
+    private LocalDate resolveToday() {
+        try {
+            org.springframework.web.context.request.ServletRequestAttributes attrs =
+                (org.springframework.web.context.request.ServletRequestAttributes)
+                    org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                String tzHeader = attrs.getRequest().getHeader("X-Timezone-Offset");
+                if (tzHeader != null && !tzHeader.isBlank()) {
+                    java.time.ZoneId zoneId = java.time.ZoneId.of(tzHeader.trim());
+                    return LocalDate.now(zoneId);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Could not parse timezone header, falling back to server date: {}", e.getMessage());
+        }
+        return LocalDate.now();
+    }
+
     private User resolveUser(UUID userId) {
         if (userId != null) {
             return userRepository.findById(userId).orElseGet(this::getOrCreateDemoUser);
         }
+
+        org.springframework.security.core.Authentication auth =
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof User user) {
+            return user;
+        }
+
         return getOrCreateDemoUser();
     }
 
