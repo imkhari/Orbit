@@ -39,8 +39,8 @@ public class DemoDataSeeder implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (taskRepository.count() > 0) {
-            log.info("Database already contains tasks. Skipping DemoDataSeeder.");
+        if (taskRepository.count() >= 5) {
+            log.info("Database already contains tasks (count >= 5). Skipping DemoDataSeeder.");
             return;
         }
 
@@ -73,33 +73,43 @@ public class DemoDataSeeder implements ApplicationRunner {
                 .build());
         }
 
-        // 3. Khởi tạo 3 Bảng làm việc ADHD
-        Board boardStudy = boardRepository.save(Board.builder()
-            .user(user)
-            .title("Học Tập & Nghiên Cứu")
-            .icon("🎓")
-            .colorTheme("sky")
-            .position(0)
-            .isArchived(false)
-            .build());
+        // 3. Khởi tạo 3 Bảng làm việc ADHD (hoặc tái sử dụng nếu đã có)
+        List<Board> existingBoards = boardRepository.findByUserIdOrderByPositionAsc(user.getId());
+        Board boardStudy = existingBoards.stream()
+            .filter(b -> b.getTitle().contains("Học Tập"))
+            .findFirst()
+            .orElseGet(() -> boardRepository.save(Board.builder()
+                .user(user)
+                .title("Học Tập & Nghiên Cứu")
+                .icon("🎓")
+                .colorTheme("sky")
+                .position(0)
+                .isArchived(false)
+                .build()));
 
-        Board boardWork = boardRepository.save(Board.builder()
-            .user(user)
-            .title("Dự Án & Công Việc")
-            .icon("💼")
-            .colorTheme("amber")
-            .position(1)
-            .isArchived(false)
-            .build());
+        Board boardWork = existingBoards.stream()
+            .filter(b -> b.getTitle().contains("Dự Án"))
+            .findFirst()
+            .orElseGet(() -> boardRepository.save(Board.builder()
+                .user(user)
+                .title("Dự Án & Công Việc")
+                .icon("💼")
+                .colorTheme("amber")
+                .position(1)
+                .isArchived(false)
+                .build()));
 
-        Board boardLife = boardRepository.save(Board.builder()
-            .user(user)
-            .title("Đời Sống & Việc Nhà")
-            .icon("🏠")
-            .colorTheme("emerald")
-            .position(2)
-            .isArchived(false)
-            .build());
+        Board boardLife = existingBoards.stream()
+            .filter(b -> b.getTitle().contains("Đời Sống"))
+            .findFirst()
+            .orElseGet(() -> boardRepository.save(Board.builder()
+                .user(user)
+                .title("Đời Sống & Việc Nhà")
+                .icon("🏠")
+                .colorTheme("emerald")
+                .position(2)
+                .isArchived(false)
+                .build()));
 
         // 4. Khởi tạo các nhiệm vụ mẫu đại diện
         // Task 1: Cột DOING (duy nhất 1 việc active WIP = 1)
