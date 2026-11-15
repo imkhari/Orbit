@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
     maxWidth: 150,
-    minHeight: 34,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
   },
   boardChipIcon: {
     fontSize: 13,
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
     paddingHorizontal: 10,
     paddingVertical: 7,
-    minHeight: 40,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#38BDF8',
-    minHeight: 40,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -571,8 +571,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#334155',
-    minHeight: 40,
-    minWidth: 40,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
+    minWidth: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 18,
   },

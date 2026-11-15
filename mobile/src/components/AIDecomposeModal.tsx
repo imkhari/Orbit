@@ -512,9 +512,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#F8FAFC',
-    paddingVertical: 2,
+    paddingVertical: 4,
     marginBottom: 6,
-    minHeight: 28,
+    minHeight: 38, // Improved touch ergonomics
   },
   stepInputDeselected: {
     textDecorationLine: 'line-through',
@@ -650,7 +650,7 @@ const styles = StyleSheet.create({
   },
   loadingMessageSubtitle: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 16,
   },

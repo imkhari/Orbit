@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     flex: 1,
-    minHeight: 40, // Touch target >= 40pt
+    minHeight: 44, // WCAG Touch target >= 44x44 pt
     backgroundColor: '#1E293B',
     borderRadius: 8,
     borderWidth: 1,

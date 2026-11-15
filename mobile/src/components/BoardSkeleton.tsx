@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   calmMessageSubtitle: {
-    color: '#64748B', // Slate-500
+    color: '#94A3B8', // Slate-400 (Contrast >= 4.5:1 on #0F172A)
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 16,

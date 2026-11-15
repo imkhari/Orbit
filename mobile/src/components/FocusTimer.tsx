@@ -234,7 +234,7 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
           }
           accessibilityHint="Chạm để bắt đầu hoặc tạm dừng đếm ngược"
         >
-          <Text style={styles.mainButtonText}>
+          <Text style={[styles.mainButtonText, isActive && styles.pauseButtonText]}>
             {isActive ? '⏸ Tạm dừng' : secondsLeft === 0 ? '🔄 Bắt đầu lại' : '▶ Bắt đầu'}
           </Text>
         </TouchableOpacity>
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   },
   sessionGoalText: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 6,
   },
   progressBarWrapper: {
@@ -371,6 +371,9 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  pauseButtonText: {
+    color: '#0F172A', // Slate-900: High contrast 8.26:1 on Amber background (WCAG AA compliant)
   },
   resetButton: {
     minHeight: 44,

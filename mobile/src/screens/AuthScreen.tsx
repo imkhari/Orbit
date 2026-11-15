@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   modeTab: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#334155',
   },
   dividerText: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 12,
     marginHorizontal: 12,
   },

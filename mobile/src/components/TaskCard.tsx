@@ -287,6 +287,7 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({
                   ]}
                   onPress={() => handleSubtaskPress(sub.id)}
                   activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessible={true}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: sub.isCompleted }}
@@ -475,7 +476,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    minHeight: 40,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
   },
   subtaskRowCompleted: {
     backgroundColor: 'rgba(5, 150, 105, 0.08)',
@@ -520,7 +521,7 @@ const styles = StyleSheet.create({
   },
   subtaskMetaText: {
     fontSize: 10,
-    color: '#64748B',
+    color: '#94A3B8', // Slate-400 for >=4.5:1 WCAG AA contrast
     fontWeight: '500',
   },
   footerRow: {
@@ -538,7 +539,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 8,
-    minHeight: 40,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
     justifyContent: 'center',
   },
   aiButtonText: {
@@ -555,7 +556,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 8,
-    minHeight: 40,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
     justifyContent: 'center',
     alignItems: 'center',
   },

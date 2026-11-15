@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptySubtasksText: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   subtaskTitleDone: {
-    color: '#64748B',
+    color: '#94A3B8',
     textDecorationLine: 'line-through',
   },
   subtaskMinutes: {
@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   deleteSubtaskBtnText: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 14,
     fontWeight: '600',
   },

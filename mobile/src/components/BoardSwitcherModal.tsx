@@ -259,6 +259,10 @@ export const BoardSwitcherModal: React.FC<BoardSwitcherModalProps> = ({
                             selectedEmoji === emoji && styles.emojiBtnSelected,
                           ]}
                           onPress={() => setSelectedEmoji(emoji)}
+                          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                          accessible={true}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Chọn biểu tượng ${emoji}`}
                         >
                           <Text style={styles.emojiText}>{emoji}</Text>
                         </TouchableOpacity>
@@ -403,7 +407,7 @@ const styles = StyleSheet.create({
   },
   closeHint: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     fontWeight: '600',
     letterSpacing: 0.5,
   },
@@ -612,7 +616,8 @@ const styles = StyleSheet.create({
   },
   emojiBtn: {
     width: 38,
-    height: 38,
+    height: 44,
+    minHeight: 44,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',

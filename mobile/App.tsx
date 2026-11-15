@@ -158,6 +158,10 @@ export default function App() {
               ]}
               onPress={() => setCurrentScreen('BOARD')}
               activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: currentScreen === 'BOARD' }}
+              accessibilityLabel="Chuyển đến màn hình Bảng Kanban"
             >
               <Text style={styles.navTabIcon}>📋</Text>
               <Text
@@ -177,6 +181,10 @@ export default function App() {
               ]}
               onPress={() => setCurrentScreen('FOCUS')}
               activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: currentScreen === 'FOCUS' }}
+              accessibilityLabel={`Chuyển đến màn hình Tập trung ${pomodoroMinutes} phút`}
             >
               <View style={styles.focusIconWrapper}>
                 <Text style={styles.navTabIcon}>🎯</Text>
@@ -199,6 +207,10 @@ export default function App() {
               ]}
               onPress={() => setCurrentScreen('SETTINGS')}
               activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: currentScreen === 'SETTINGS' }}
+              accessibilityLabel="Chuyển đến màn hình Cài đặt"
             >
               <Text style={styles.navTabIcon}>⚙️</Text>
               <Text
@@ -244,6 +256,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
     borderRadius: 12,
     marginHorizontal: 6,
     gap: 8,
@@ -257,7 +270,7 @@ const styles = StyleSheet.create({
   navTabLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#94A3B8', // Slate-400 for >=4.5:1 WCAG AA contrast on Slate-900
   },
   navTabLabelActive: {
     color: '#38BDF8',

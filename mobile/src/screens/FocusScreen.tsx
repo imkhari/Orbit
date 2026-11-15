@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
   },
   noSubtasksText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#94A3B8',
     lineHeight: 18,
   },
   subtasksList: {
@@ -535,12 +535,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   subtaskTitleCompleted: {
-    color: '#64748B',
+    color: '#94A3B8',
     textDecorationLine: 'line-through',
   },
   subtaskMeta: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 2,
   },
   bottomActionWrapper: {

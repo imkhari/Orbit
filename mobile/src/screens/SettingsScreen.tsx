@@ -146,7 +146,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   setIsEditingName(true);
                 }}
                 style={styles.editNameBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Đổi tên hiển thị"
               >
                 <Text style={styles.editNameIcon}>✏️</Text>
               </TouchableOpacity>
@@ -313,7 +316,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onPress={toggleSoundscapePlaying}
                 activeOpacity={0.8}
               >
-                <Text style={styles.playToggleText}>
+                <Text style={[styles.playToggleText, isSoundscapePlaying && styles.playToggleTextPlaying]}>
                   {isSoundscapePlaying ? '⏸ Đang phát' : '▶ Nghe thử'}
                 </Text>
               </TouchableOpacity>
@@ -541,7 +544,11 @@ const styles = StyleSheet.create({
     maxWidth: '85%',
   },
   editNameBtn: {
-    padding: 4,
+    padding: 6,
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   editNameIcon: {
     fontSize: 14,
@@ -740,6 +747,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  playToggleTextPlaying: {
+    color: '#0F172A', // Slate-900: High contrast 8.26:1 on Amber background (WCAG AA compliant)
+  },
   soundscapeDescription: {
     fontSize: 12,
     color: '#94A3B8',
@@ -781,7 +791,7 @@ const styles = StyleSheet.create({
   },
   soundscapeDesc: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 1,
   },
   soundscapeCheck: {
@@ -818,7 +828,7 @@ const styles = StyleSheet.create({
   },
   toggleHint: {
     fontSize: 11,
-    color: '#64748B',
+    color: '#94A3B8',
     marginTop: 2,
   },
   logoutContainer: {
