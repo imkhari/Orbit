@@ -33,6 +33,9 @@ export interface Task {
   estimatedMinutes?: number;
   position: number;
   subtasks: Subtask[];
+  priorityScore?: number;
+  isOverdue?: boolean;
+  isDimmed?: boolean;
   createdAt: string;
   completedAt?: string;
 }
@@ -144,7 +147,24 @@ export interface TaskResponse {
   deadline?: string;
   createdAt: string;
   completedAt?: string;
+  priorityScore?: number;
+  isOverdue?: boolean;
+  isDimmed?: boolean;
   subtasks?: SubtaskResponse[];
+}
+
+export interface RescueTaskRequest {
+  boardId?: string;
+  currentEnergy?: EnergyLevel;
+  availableMinutes?: number;
+}
+
+export interface RescueTaskResponse {
+  task: TaskResponse;
+  starterSubtask?: SubtaskResponse;
+  gentleEncouragement: string;
+  whyRecommended: string;
+  priorityScore: number;
 }
 
 export interface BoardResponse {

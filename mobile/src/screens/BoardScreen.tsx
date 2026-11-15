@@ -16,11 +16,10 @@ import { TaskCard } from '../components/TaskCard';
 import { QuickCaptureBar } from '../components/QuickCaptureBar';
 import { AIDecomposeModal } from '../components/AIDecomposeModal';
 import { TaskDetailModal } from '../components/TaskDetailModal';
-import {
-  EnergyFilterWidget,
-  EnergyFilterType,
-} from '../components/EnergyFilterWidget';
+import { EnergyFilterWidget, EnergyFilterType } from '../components/EnergyFilterWidget';
 import { BoardSwitcherModal } from '../components/BoardSwitcherModal';
+import { RescueModal } from '../components/RescueModal';
+import { DopamineCelebration } from '../components/DopamineCelebration';
 import { useBoardStore } from '../store/useBoardStore';
 
 export interface BoardScreenProps {
@@ -73,6 +72,16 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyFilterType>('ALL');
   const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
   const [showBoardSwitcher, setShowBoardSwitcher] = useState<boolean>(false);
+  const [showRescueModal, setShowRescueModal] = useState<boolean>(false);
+  const [celebrationState, setCelebrationState] = useState<{
+    visible: boolean;
+    message: string;
+    xp: number;
+  }>({
+    visible: false,
+    message: '',
+    xp: 10,
+  });
 
   // Zustand Board Store
   const { boards, activeBoardId } = useBoardStore();
@@ -99,12 +108,31 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
 
   // Task movement with WIP=1 Spring Physics & Haptics delegation to useTaskStore
   const handleTaskMovement = (taskId: string, targetStatus: TaskStatus) => {
-    if (targetStatus === 'TODO') {
+    if (targetStatus === 'DONE') {
+      setCelebrationState({
+        visible: true,
+        message: 'Hoàn thành nhiệm vụ!',
+        xp: 10,
+      });
+    } else if (targetStatus === 'TODO') {
       if (Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
     onMoveTask(taskId, targetStatus);
+  };
+
+  const handleToggleSubtaskWrapper = (taskId: string, subtaskId: string) => {
+    const task = tasks.find((t) => t.id === taskId);
+    const subtask = task?.subtasks?.find((s) => s.id === subtaskId);
+    if (subtask && !subtask.isCompleted) {
+      setCelebrationState({
+        visible: true,
+        message: 'Dopamine Ignition!',
+        xp: 5,
+      });
+    }
+    onToggleSubtask?.(taskId, subtaskId);
   };
 
   // Quick Capture wraps parent callback and switches to BACKLOG column
@@ -307,6 +335,29 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
         showStreakCard={false}
       />
 
+      {/* Analysis Paralysis Rescue Banner */}
+      <TouchableOpacity
+        style={styles.rescueBanner}
+        onPress={() => setShowRescueModal(true)}
+        activeOpacity={0.8}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel="Mở cửa sổ Cứu tê liệt não"
+      >
+        <View style={styles.rescueBannerLeft}>
+          <Text style={styles.rescueBannerIcon}>✨</Text>
+          <View style={styles.rescueBannerTextGroup}>
+            <Text style={styles.rescueBannerTitle}>Tê liệt não? Không biết làm gì trước?</Text>
+            <Text style={styles.rescueBannerSubtitle}>
+              Orbit sẽ quét P(T) và chọn 1 việc nhẹ nhàng nhất 🌿
+            </Text>
+          </View>
+        </View>
+        <View style={styles.rescueBannerButton}>
+          <Text style={styles.rescueBannerButtonText}>Cứu tôi 🎲</Text>
+        </View>
+      </TouchableOpacity>
+
       {/* Column Tabs */}
       <View style={styles.columnTabBar}>
         {columns.map((col) => {
@@ -414,7 +465,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
             onMoveTask={handleTaskMovement}
             onOpenAIDecompose={(t) => setDecomposingTask(t)}
             onFocusTask={handleFocusTaskAction}
-            onToggleSubtask={onToggleSubtask}
+            onToggleSubtask={handleToggleSubtaskWrapper}
             onOpenDetail={(t) => setSelectedDetailTaskId(t.id)}
             isDimmed={item.isDimmed}
             triggerRollback={propRollbackTaskId === item.task.id}
@@ -444,7 +495,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
         onDeleteTask={(taskId) => {
           onDeleteTask?.(taskId);
         }}
-        onToggleSubtask={onToggleSubtask || (() => {})}
+        onToggleSubtask={handleToggleSubtaskWrapper}
         onApplySubtasks={onApplySubtasks}
         onOpenAIDecompose={(t) => setDecomposingTask(t)}
         onStartFocus={(t) => handleFocusTaskAction(t)}
@@ -454,6 +505,25 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
       <BoardSwitcherModal
         visible={showBoardSwitcher}
         onClose={() => setShowBoardSwitcher(false)}
+      />
+
+      {/* Modal Cứu Tê Liệt Não - Magic Pick */}
+      <RescueModal
+        visible={showRescueModal}
+        onClose={() => setShowRescueModal(false)}
+        onStartFocus={(task) => handleFocusTaskAction(task)}
+        currentEnergy={selectedEnergy !== 'ALL' ? selectedEnergy : 'MEDIUM'}
+        activeBoardId={activeBoardId}
+      />
+
+      {/* Hiệu ứng Dopamine lấp lánh khi tick việc */}
+      <DopamineCelebration
+        visible={celebrationState.visible}
+        message={celebrationState.message}
+        xpAmount={celebrationState.xp}
+        onAnimationEnd={() =>
+          setCelebrationState((prev) => ({ ...prev, visible: false }))
+        }
       />
     </SafeAreaView>
   );
@@ -793,5 +863,54 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  rescueBanner: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  rescueBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
+  },
+  rescueBannerIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  rescueBannerTextGroup: {
+    flex: 1,
+  },
+  rescueBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#38BDF8',
+  },
+  rescueBannerSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  rescueBannerButton: {
+    backgroundColor: '#0284C7',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  rescueBannerButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

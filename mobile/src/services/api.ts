@@ -20,6 +20,8 @@ import {
   BoardResponse,
   CreateBoardRequest,
   UpdateBoardRequest,
+  RescueTaskRequest,
+  RescueTaskResponse,
 } from '../types';
 
 /**
@@ -97,6 +99,9 @@ export const mapTaskResponseToTask = (
     estimatedMinutes: res.estimatedMinutes,
     position: res.position ?? 0,
     subtasks: existingSubtasks.length > 0 ? existingSubtasks : mappedSubtasks,
+    priorityScore: res.priorityScore,
+    isOverdue: res.isOverdue,
+    isDimmed: res.isDimmed,
     createdAt: res.createdAt,
     completedAt: res.completedAt,
   };
@@ -119,6 +124,33 @@ export const TaskService = {
       : (response.data as ApiResponse<TaskResponse[]>)?.data ?? [];
 
     return rawList.map((item) => mapTaskResponseToTask(item));
+  },
+
+  /**
+   * Lấy danh sách nhiệm vụ ưu tiên theo năng lượng não bộ P(T) (GET /api/v1/tasks/prioritized)
+   */
+  getPrioritizedTasks: async (energy: EnergyLevel = 'MEDIUM', status: TaskStatus = 'TODO'): Promise<Task[]> => {
+    const response = await apiClient.get<ApiResponse<TaskResponse[]> | TaskResponse[]>('/tasks/prioritized', {
+      params: { userEnergy: energy, status },
+    });
+
+    const rawList: TaskResponse[] = Array.isArray(response.data)
+      ? response.data
+      : (response.data as ApiResponse<TaskResponse[]>)?.data ?? [];
+
+    return rawList.map((item) => mapTaskResponseToTask(item));
+  },
+
+  /**
+   * Giải cứu trạng thái tê liệt nhận thức (POST /api/v1/tasks/rescue)
+   */
+  getRescueRecommendation: async (request?: RescueTaskRequest): Promise<RescueTaskResponse> => {
+    const response = await apiClient.post<ApiResponse<RescueTaskResponse> | RescueTaskResponse>(
+      '/tasks/rescue',
+      request || {}
+    );
+
+    return (response.data as ApiResponse<RescueTaskResponse>)?.data ?? (response.data as RescueTaskResponse);
   },
 
   /**
