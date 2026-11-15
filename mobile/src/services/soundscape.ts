@@ -1,9 +1,8 @@
-import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 import { SoundscapeType } from '../types';
 
-let currentSound: Audio.Sound | null = null;
 let activeSoundscapeType: SoundscapeType = 'NONE';
+let activeAudioPlayer: any = null;
 let webAudioContext: any = null;
 let webNoiseNode: any = null;
 
@@ -12,6 +11,36 @@ const SOUND_STREAMS: Record<Exclude<SoundscapeType, 'NONE'>, string> = {
   RAIN: 'https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg',
   FOREST: 'https://actions.google.com/sounds/v1/ambiences/forest_birds.ogg',
   WAVES: 'https://actions.google.com/sounds/v1/water/ocean_waves.ogg',
+};
+
+/**
+ * Tải module audio linh hoạt (Dynamic Loading):
+ * Tránh lỗi crash "Cannot find native module 'ExpoAV'" trên Expo Go khi ứng dụng khởi chạy.
+ * Hỗ trợ chuyển tiếp mượt mà giữa expo-audio (Expo 58) và dự phòng không crash.
+ */
+const getNativeAudioModule = () => {
+  try {
+    // 1. Thử expo-audio (Chuẩn mới Expo SDK 58)
+    // Dùng require động để tránh Metro crash khi native module vắng mặt trên Expo Go
+    const expoAudio = require('expo-audio');
+    if (expoAudio && (expoAudio.createAudioPlayer || expoAudio.useAudioPlayer)) {
+      return { type: 'expo-audio', module: expoAudio };
+    }
+  } catch {
+    // Không có expo-audio trong client hiện tại
+  }
+
+  try {
+    // 2. Thử expo-av nếu đang chạy trên bản build cũ
+    const expoAv = require('expo-av');
+    if (expoAv && expoAv.Audio) {
+      return { type: 'expo-av', module: expoAv.Audio };
+    }
+  } catch {
+    // Không có expo-av
+  }
+
+  return null;
 };
 
 /**
@@ -32,44 +61,83 @@ export const SoundscapeService = {
     try {
       await SoundscapeService.stop();
 
-      // Cấu hình audio session trên thiết bị di động
-      if (Platform.OS !== 'web') {
+      // Fallback Web Audio Generator nếu đang chạy trên Web
+      if (Platform.OS === 'web') {
+        SoundscapeService.playWebSynthesizer(type, volume);
+        activeSoundscapeType = type;
+        return true;
+      }
+
+      // Môi trường Mobile (Expo Go hoặc Development Build)
+      const nativeAudio = getNativeAudioModule();
+      if (!nativeAudio) {
+        console.warn(
+          '[SoundscapeService] Native audio module is not bundled in this Expo Go client. Skipping audio playback safely without crash.'
+        );
+        activeSoundscapeType = type;
+        return false;
+      }
+
+      const streamUrl = SOUND_STREAMS[type];
+
+      // Triển khai qua expo-audio (SDK 58)
+      if (nativeAudio.type === 'expo-audio') {
+        const { createAudioPlayer } = nativeAudio.module;
+        if (createAudioPlayer) {
+          const player = createAudioPlayer({ uri: streamUrl });
+          player.loop = true;
+          player.volume = volume;
+          player.play();
+          activeAudioPlayer = {
+            type: 'expo-audio',
+            player,
+            stop: () => {
+              try {
+                player.pause?.();
+                player.remove?.();
+              } catch {}
+            },
+          };
+          activeSoundscapeType = type;
+          return true;
+        }
+      }
+
+      // Triển khai qua expo-av nếu có
+      if (nativeAudio.type === 'expo-av') {
+        const Audio = nativeAudio.module;
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           staysActiveInBackground: true,
           playsInSilentModeIOS: true,
           shouldDuckAndroid: true,
           playThroughEarpieceAndroid: false,
-        });
+        }).catch(() => {});
 
-        const streamUrl = SOUND_STREAMS[type];
         const { sound } = await Audio.Sound.createAsync(
           { uri: streamUrl },
-          { shouldPlay: true, isLooping: true, volume },
-          (status) => {
-            if (!status.isLoaded && status.error) {
-              console.warn('[SoundscapeService] Audio playback warning:', status.error);
-            }
-          }
+          { shouldPlay: true, isLooping: true, volume }
         );
 
-        currentSound = sound;
-        activeSoundscapeType = type;
-        return true;
-      } else {
-        // Fallback Web Audio Generator cho môi trường Web
-        SoundscapeService.playWebSynthesizer(type, volume);
+        activeAudioPlayer = {
+          type: 'expo-av',
+          sound,
+          stop: async () => {
+            try {
+              await sound.stopAsync();
+              await sound.unloadAsync();
+            } catch {}
+          },
+        };
         activeSoundscapeType = type;
         return true;
       }
+
+      activeSoundscapeType = type;
+      return false;
     } catch (err) {
-      console.warn('[SoundscapeService] Error playing soundscape:', err);
-      // Fallback web synth nếu expo-av trên web gặp trở ngại
-      if (Platform.OS === 'web') {
-        SoundscapeService.playWebSynthesizer(type, volume);
-        activeSoundscapeType = type;
-        return true;
-      }
+      console.warn('[SoundscapeService] Playback handled gracefully:', err);
+      activeSoundscapeType = type;
       return false;
     }
   },
@@ -79,18 +147,25 @@ export const SoundscapeService = {
    */
   stop: async (): Promise<void> => {
     try {
-      if (currentSound) {
-        await currentSound.stopAsync();
-        await currentSound.unloadAsync();
-        currentSound = null;
+      if (activeAudioPlayer) {
+        if (activeAudioPlayer.type === 'expo-audio') {
+          activeAudioPlayer.stop();
+        } else if (activeAudioPlayer.type === 'expo-av') {
+          await activeAudioPlayer.stop();
+        }
+        activeAudioPlayer = null;
       }
 
       if (webNoiseNode) {
-        webNoiseNode.disconnect();
+        try {
+          webNoiseNode.disconnect();
+        } catch {}
         webNoiseNode = null;
       }
       if (webAudioContext && webAudioContext.state !== 'closed') {
-        await webAudioContext.suspend?.();
+        try {
+          await webAudioContext.suspend?.();
+        } catch {}
       }
 
       activeSoundscapeType = 'NONE';

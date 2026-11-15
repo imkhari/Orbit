@@ -24,13 +24,10 @@ dist/
 web-build/
 
 # iOS / Android build outputs
-ios/Pods/
-ios/build/
-ios/*.xcworkspace
-ios/*.xcodeproj/xcuserdata/
-android/app/build/
-android/.gradle/
-android/build/
+ios/
+android/
+mobile/ios/
+mobile/android/
 *.keystore
 *.jks
 
