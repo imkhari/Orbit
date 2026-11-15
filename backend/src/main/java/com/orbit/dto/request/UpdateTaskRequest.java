@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
+import java.util.UUID;
 
 /**
  * DTO nhận dữ liệu cập nhật thông tin nhiệm vụ (Task Details).
@@ -25,6 +26,8 @@ public record UpdateTaskRequest(
     @Max(value = 480, message = "Thời gian ước tính tối đa 480 phút")
     Integer estimatedMinutes,
 
-    Instant deadline
+    Instant deadline,
+
+    UUID boardId
 ) {
 }

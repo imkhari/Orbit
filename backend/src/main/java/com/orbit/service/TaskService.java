@@ -42,6 +42,16 @@ public interface TaskService {
     List<TaskResponse> getTasksByStatus(Task.TaskStatus status);
 
     /**
+     * Lấy danh sách nhiệm vụ thuộc về một bảng cụ thể.
+     */
+    List<TaskResponse> getTasksByBoard(UUID boardId);
+
+    /**
+     * Lấy danh sách nhiệm vụ thuộc về một bảng và lọc theo trạng thái cột.
+     */
+    List<TaskResponse> getTasksByBoardAndStatus(UUID boardId, Task.TaskStatus status);
+
+    /**
      * Xóa nhiệm vụ theo ID.
      */
     void deleteTask(UUID taskId);

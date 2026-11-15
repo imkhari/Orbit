@@ -27,7 +27,9 @@ public record CreateTaskRequest(
 
     Task.UrgencyLevel urgency,
 
-    UUID userId
+    UUID userId,
+
+    UUID boardId
 ) {
     public Task.EnergyRequirement energyRequiredOrDefault() {
         return energyRequired != null ? energyRequired : Task.EnergyRequirement.MEDIUM;

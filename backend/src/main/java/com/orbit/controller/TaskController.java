@@ -122,15 +122,23 @@ public class TaskController {
     }
 
     /**
-     * Lấy danh sách nhiệm vụ (hỗ trợ lọc theo trạng thái cột Kanban).
+     * Lấy danh sách nhiệm vụ (hỗ trợ lọc theo trạng thái cột Kanban và theo bảng).
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getTasks(
-        @RequestParam(required = false) Task.TaskStatus status
+        @RequestParam(required = false) Task.TaskStatus status,
+        @RequestParam(required = false) UUID boardId
     ) {
-        List<TaskResponse> tasks = (status != null)
-            ? taskService.getTasksByStatus(status)
-            : taskService.getAllTasks();
+        List<TaskResponse> tasks;
+        if (boardId != null) {
+            tasks = (status != null)
+                ? taskService.getTasksByBoardAndStatus(boardId, status)
+                : taskService.getTasksByBoard(boardId);
+        } else {
+            tasks = (status != null)
+                ? taskService.getTasksByStatus(status)
+                : taskService.getAllTasks();
+        }
 
         return ResponseEntity.ok(ApiResponse.ok(tasks, "Lấy danh sách nhiệm vụ thành công"));
     }

@@ -39,4 +39,16 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
      */
     @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.subtasks ORDER BY t.createdAt DESC")
     List<Task> findAllByOrderByCreatedAtDesc();
+
+    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.subtasks WHERE t.board.id = :boardId ORDER BY t.position ASC")
+    List<Task> findByBoardIdOrderByPositionAsc(@Param("boardId") UUID boardId);
+
+    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.subtasks WHERE t.board.id = :boardId AND t.status = :status ORDER BY t.position ASC")
+    List<Task> findByBoardIdAndStatusOrderByPositionAsc(@Param("boardId") UUID boardId, @Param("status") Task.TaskStatus status);
+
+    long countByBoardId(UUID boardId);
+
+    long countByBoardIdAndStatus(UUID boardId, Task.TaskStatus status);
+
+    List<Task> findByUserIdAndBoardIsNull(UUID userId);
 }

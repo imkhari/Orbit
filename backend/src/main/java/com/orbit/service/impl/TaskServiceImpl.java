@@ -28,6 +28,8 @@ public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
+    private final com.orbit.repository.BoardRepository boardRepository;
+    private final com.orbit.service.BoardService boardService;
     private final com.orbit.service.StreakService streakService;
 
     @Override
@@ -47,8 +49,21 @@ public class TaskServiceImpl implements TaskService {
             effectiveDescription = rawTitle.substring(100).trim();
         }
 
+        com.orbit.entity.Board board = null;
+        if (request.boardId() != null) {
+            board = boardRepository.findById(request.boardId()).orElse(null);
+        }
+        if (board == null) {
+            board = boardRepository.findFirstByUserIdAndIsArchivedFalseOrderByPositionAsc(user.getId())
+                .orElseGet(() -> {
+                    var defaultBoards = boardService.getUserBoards(user.getId());
+                    return !defaultBoards.isEmpty() ? boardRepository.findById(defaultBoards.get(0).id()).orElse(null) : null;
+                });
+        }
+
         Task task = Task.builder()
             .user(user)
+            .board(board)
             .title(effectiveTitle)
             .description(effectiveDescription)
             .energyRequired(request.energyRequiredOrDefault())
@@ -135,6 +150,9 @@ public class TaskServiceImpl implements TaskService {
         if (request.deadline() != null) {
             task.setDeadline(request.deadline());
         }
+        if (request.boardId() != null) {
+            boardRepository.findById(request.boardId()).ifPresent(task::setBoard);
+        }
 
         Task saved = taskRepository.save(task);
         log.info("Task ID: {} details updated successfully", taskId);
@@ -158,6 +176,20 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public List<TaskResponse> getTasksByStatus(Task.TaskStatus status) {
         return taskRepository.findByStatusOrderByPositionAsc(status).stream()
+            .map(TaskResponse::fromEntity)
+            .toList();
+    }
+
+    @Override
+    public List<TaskResponse> getTasksByBoard(UUID boardId) {
+        return taskRepository.findByBoardIdOrderByPositionAsc(boardId).stream()
+            .map(TaskResponse::fromEntity)
+            .toList();
+    }
+
+    @Override
+    public List<TaskResponse> getTasksByBoardAndStatus(UUID boardId, Task.TaskStatus status) {
+        return taskRepository.findByBoardIdAndStatusOrderByPositionAsc(boardId, status).stream()
             .map(TaskResponse::fromEntity)
             .toList();
     }

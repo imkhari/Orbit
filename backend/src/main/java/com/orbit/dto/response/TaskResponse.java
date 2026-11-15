@@ -13,6 +13,7 @@ import java.util.UUID;
 public record TaskResponse(
     UUID id,
     UUID userId,
+    UUID boardId,
     String title,
     String description,
     Task.TaskStatus status,
@@ -39,6 +40,7 @@ public record TaskResponse(
         return new TaskResponse(
             task.getId(),
             task.getUser() != null ? task.getUser().getId() : null,
+            task.getBoard() != null ? task.getBoard().getId() : null,
             task.getTitle(),
             task.getDescription(),
             task.getStatus(),
