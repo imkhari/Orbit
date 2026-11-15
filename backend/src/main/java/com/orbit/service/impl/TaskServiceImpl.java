@@ -1,6 +1,7 @@
 package com.orbit.service.impl;
 
 import com.orbit.dto.request.CreateTaskRequest;
+import com.orbit.dto.request.UpdateTaskRequest;
 import com.orbit.dto.request.UpdateTaskStatusRequest;
 import com.orbit.dto.response.TaskResponse;
 import com.orbit.entity.Task;
@@ -36,10 +37,20 @@ public class TaskServiceImpl implements TaskService {
 
         User user = resolveUser(request.userId());
 
+        String rawTitle = request.title().trim();
+        String effectiveTitle = rawTitle;
+        String effectiveDescription = request.description();
+
+        // Edge Case 05: Tự động tách tối đa 100 ký tự đầu làm tiêu đề, phần còn lại vào mô tả
+        if (rawTitle.length() > 100 && (effectiveDescription == null || effectiveDescription.isBlank())) {
+            effectiveTitle = rawTitle.substring(0, 100).trim();
+            effectiveDescription = rawTitle.substring(100).trim();
+        }
+
         Task task = Task.builder()
             .user(user)
-            .title(request.title().trim())
-            .description(request.description())
+            .title(effectiveTitle)
+            .description(effectiveDescription)
             .energyRequired(request.energyRequiredOrDefault())
             .urgency(request.urgencyOrDefault())
             .estimatedMinutes(request.estimatedMinutes())
@@ -90,6 +101,44 @@ public class TaskServiceImpl implements TaskService {
         Task updated = taskRepository.save(task);
         log.info("Task ID: {} status updated to {}", taskId, targetStatus);
         return TaskResponse.fromEntity(updated);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TaskResponse updateTask(UUID taskId, UpdateTaskRequest request) {
+        log.info("Updating task details for ID: {}", taskId);
+
+        Task task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new ResourceNotFoundException("Nhiệm vụ", taskId));
+
+        if (request.title() != null && !request.title().isBlank()) {
+            String rawTitle = request.title().trim();
+            if (rawTitle.length() > 100 && (request.description() == null || request.description().isBlank())) {
+                task.setTitle(rawTitle.substring(0, 100).trim());
+                task.setDescription(rawTitle.substring(100).trim());
+            } else {
+                task.setTitle(rawTitle);
+            }
+        }
+        if (request.description() != null) {
+            task.setDescription(request.description().trim());
+        }
+        if (request.energyRequired() != null) {
+            task.setEnergyRequired(request.energyRequired());
+        }
+        if (request.urgency() != null) {
+            task.setUrgency(request.urgency());
+        }
+        if (request.estimatedMinutes() != null) {
+            task.setEstimatedMinutes(request.estimatedMinutes());
+        }
+        if (request.deadline() != null) {
+            task.setDeadline(request.deadline());
+        }
+
+        Task saved = taskRepository.save(task);
+        log.info("Task ID: {} details updated successfully", taskId);
+        return TaskResponse.fromEntity(saved);
     }
 
     @Override

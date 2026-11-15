@@ -1,6 +1,7 @@
 package com.orbit.service;
 
 import com.orbit.dto.request.CreateTaskRequest;
+import com.orbit.dto.request.UpdateTaskRequest;
 import com.orbit.dto.request.UpdateTaskStatusRequest;
 import com.orbit.dto.response.TaskResponse;
 import com.orbit.entity.Task;
@@ -19,6 +20,11 @@ public interface TaskService {
      * Cập nhật trạng thái cột Kanban cho nhiệm vụ với ràng buộc đơn nhiệm (WIP = 1 ở cột DOING).
      */
     TaskResponse updateTaskStatus(UUID taskId, UpdateTaskStatusRequest request);
+
+    /**
+     * Cập nhật thông tin chi tiết nhiệm vụ (tiêu đề, ghi chú, mức năng lượng, độ khẩn cấp, deadline, thời lượng).
+     */
+    TaskResponse updateTask(UUID taskId, UpdateTaskRequest request);
 
     /**
      * Lấy thông tin chi tiết một nhiệm vụ theo ID.

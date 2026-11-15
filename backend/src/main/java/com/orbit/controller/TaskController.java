@@ -1,6 +1,7 @@
 package com.orbit.controller;
 
 import com.orbit.dto.request.CreateTaskRequest;
+import com.orbit.dto.request.UpdateTaskRequest;
 import com.orbit.dto.request.UpdateTaskStatusRequest;
 import com.orbit.dto.response.ApiResponse;
 import com.orbit.dto.response.TaskResponse;
@@ -92,6 +93,19 @@ public class TaskController {
         TaskResponse response = taskService.createTask(request);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.ok(response, "Nhiệm vụ đã được ghi nhận an toàn vào Backlog!"));
+    }
+
+    /**
+     * Cập nhật thông tin chi tiết nhiệm vụ (tiêu đề, ghi chú, năng lượng, deadline, thời lượng ước tính).
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
+        @PathVariable UUID id,
+        @Valid @RequestBody UpdateTaskRequest request
+    ) {
+        log.info("REST request to update task details for ID {}", id);
+        TaskResponse response = taskService.updateTask(id, request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Nhiệm vụ đã được cập nhật thành công!"));
     }
 
     /**
