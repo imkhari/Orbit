@@ -202,3 +202,14 @@ export interface LoginRequest {
   email: string;
   password: string;
 }
+
+export type SoundscapeType = 'NONE' | 'BROWN_NOISE' | 'RAIN' | 'FOREST' | 'WAVES';
+
+export interface UserSettings {
+  defaultEnergyLevel: EnergyLevel;
+  pomodoroMinutes: 15 | 25 | 45;
+  soundscape: SoundscapeType;
+  hapticFeedbackEnabled: boolean;
+  gentleNotificationsEnabled: boolean;
+  hideRedAlerts: boolean;
+}

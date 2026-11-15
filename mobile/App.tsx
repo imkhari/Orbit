@@ -11,11 +11,13 @@ import { BoardScreen } from './src/screens/BoardScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { NotificationToast } from './src/components/NotificationToast';
 import { BoardSkeleton } from './src/components/BoardSkeleton';
 import { useTaskStore } from './src/store/useTaskStore';
 import { useAuthStore } from './src/store/useAuthStore';
 import { useBoardStore } from './src/store/useBoardStore';
+import { useSettingsStore } from './src/store/useSettingsStore';
 import { Task, EnergyLevel } from './src/types';
 
 export default function App() {
@@ -26,7 +28,9 @@ export default function App() {
     setEnergyLevel,
   } = useAuthStore();
 
-  const [currentScreen, setCurrentScreen] = useState<'ONBOARDING' | 'AUTH' | 'BOARD' | 'FOCUS'>(
+  const { pomodoroMinutes } = useSettingsStore();
+
+  const [currentScreen, setCurrentScreen] = useState<'ONBOARDING' | 'AUTH' | 'BOARD' | 'FOCUS' | 'SETTINGS'>(
     hasCompletedOnboarding ? 'BOARD' : 'ONBOARDING'
   );
 
@@ -115,6 +119,7 @@ export default function App() {
             onToggleSubtask={toggleSubtask}
             onNavigateFocus={() => setCurrentScreen('FOCUS')}
             onNavigateAuth={() => setCurrentScreen('AUTH')}
+            onNavigateSettings={() => setCurrentScreen('SETTINGS')}
             onFocusTask={async (task: Task) => {
               if (task.status !== 'DOING') {
                 const moved = await moveTask(task.id, 'DOING');
@@ -127,6 +132,11 @@ export default function App() {
             rollbackTaskId={rollbackTaskId}
             isLoading={isLoading}
           />
+        ) : currentScreen === 'SETTINGS' ? (
+          <SettingsScreen
+            onBack={() => setCurrentScreen('BOARD')}
+            onNavigateAuth={() => setCurrentScreen('AUTH')}
+          />
         ) : (
           <FocusScreen
             doingTask={doingTask}
@@ -137,8 +147,8 @@ export default function App() {
         )}
       </View>
 
-      {/* Persistent Bottom Tab Navigation (Only visible on Kanban and Focus screens) */}
-      {(currentScreen === 'BOARD' || currentScreen === 'FOCUS') && (
+      {/* Persistent Bottom Tab Navigation (Visible on Kanban, Focus, and Settings screens) */}
+      {(currentScreen === 'BOARD' || currentScreen === 'FOCUS' || currentScreen === 'SETTINGS') && (
         <SafeAreaView style={styles.bottomNavSafeArea}>
           <View style={styles.bottomNavBar}>
             <TouchableOpacity
@@ -178,7 +188,26 @@ export default function App() {
                   currentScreen === 'FOCUS' && styles.navTabLabelActive,
                 ]}
               >
-                Tập trung (25m)
+                Tập trung ({pomodoroMinutes}m)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.navTabItem,
+                currentScreen === 'SETTINGS' && styles.navTabItemActive,
+              ]}
+              onPress={() => setCurrentScreen('SETTINGS')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.navTabIcon}>⚙️</Text>
+              <Text
+                style={[
+                  styles.navTabLabel,
+                  currentScreen === 'SETTINGS' && styles.navTabLabelActive,
+                ]}
+              >
+                Cài đặt
               </Text>
             </TouchableOpacity>
           </View>

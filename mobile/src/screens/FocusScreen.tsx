@@ -15,6 +15,7 @@ import { Task, Subtask } from '../types';
 import { FocusTimer } from '../components/FocusTimer';
 import { FocusSessionService } from '../services/api';
 import { useTaskStore } from '../store/useTaskStore';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 interface FocusScreenProps {
   doingTask: Task | null;
@@ -31,6 +32,13 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPomodoroDoneModal, setShowPomodoroDoneModal] = useState(false);
+
+  const {
+    pomodoroMinutes,
+    soundscape,
+    isSoundscapePlaying,
+    toggleSoundscapePlaying,
+  } = useSettingsStore();
 
   // If no task is currently in DOING
   if (!doingTask) {
@@ -66,11 +74,11 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
 
-    // Ghi nhận phiên Pomodoro 25 phút lên backend để nhận thưởng +15 XP
+    // Ghi nhận phiên Pomodoro theo thời lượng cấu hình lên backend để nhận thưởng +15 XP
     try {
       await FocusSessionService.logSession({
         taskId: doingTask.id,
-        durationMinutes: 25,
+        durationMinutes: pomodoroMinutes,
         isCompleted: true,
       });
       // Đồng bộ lại điểm thưởng XP và chuỗi ngày
@@ -152,13 +160,53 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
           ) : null}
         </View>
 
-        {/* Central Focus Pomodoro Timer (25:00) */}
+        {/* Central Focus Pomodoro Timer */}
         <View style={styles.timerSection}>
           <FocusTimer
-            initialMinutes={25}
+            initialMinutes={pomodoroMinutes}
             onComplete={handlePomodoroComplete}
           />
         </View>
+
+        {/* Cognitive Soundscape Ambient Quick Widget */}
+        <TouchableOpacity
+          style={[
+            styles.soundscapeWidget,
+            isSoundscapePlaying && styles.soundscapeWidgetActive,
+          ]}
+          onPress={toggleSoundscapePlaying}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.soundscapeWidgetIcon}>
+            {isSoundscapePlaying ? '🔊' : '🔇'}
+          </Text>
+          <View style={styles.soundscapeWidgetInfo}>
+            <Text style={styles.soundscapeWidgetTitle}>
+              {isSoundscapePlaying ? 'Đang phát âm thanh trợ năng' : 'Âm thanh trợ năng tập trung'}
+            </Text>
+            <Text style={styles.soundscapeWidgetDesc}>
+              {soundscape === 'BROWN_NOISE'
+                ? 'Tiếng Ồn Nâu (Brown Noise) — Lọc tạp âm'
+                : soundscape === 'RAIN'
+                ? 'Mưa rào dịu nhẹ — Thư giãn tâm trí'
+                : soundscape === 'FOREST'
+                ? 'Rừng thông vi vu — Tăng sóng Alpha'
+                : soundscape === 'WAVES'
+                ? 'Sóng biển êm đềm — Giữ nhịp thở'
+                : 'Chạm để bật tiếng ồn nâu chặn tạp âm'}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.soundscapeStatusBadge,
+              isSoundscapePlaying && styles.soundscapeStatusBadgeActive,
+            ]}
+          >
+            <Text style={styles.soundscapeStatusText}>
+              {isSoundscapePlaying ? 'BẬT' : 'TẮT'}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Micro-steps Checklist */}
         <View style={styles.checklistCard}>
@@ -628,5 +676,53 @@ const styles = StyleSheet.create({
     color: '#CBD5E1',
     fontSize: 13,
     fontWeight: '600',
+  },
+  soundscapeWidget: {
+    minHeight: 52,
+    backgroundColor: '#1E293B',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  soundscapeWidgetActive: {
+    borderColor: '#38BDF8',
+    backgroundColor: '#0F2642',
+  },
+  soundscapeWidgetIcon: {
+    fontSize: 22,
+    marginRight: 12,
+  },
+  soundscapeWidgetInfo: {
+    flex: 1,
+  },
+  soundscapeWidgetTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  soundscapeWidgetDesc: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  soundscapeStatusBadge: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  soundscapeStatusBadgeActive: {
+    backgroundColor: '#0284C7',
+  },
+  soundscapeStatusText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

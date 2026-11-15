@@ -36,6 +36,7 @@ export interface BoardScreenProps {
   onNavigateFocus?: () => void;
   onFocusTask?: (task: Task) => void;
   onNavigateAuth?: () => void;
+  onNavigateSettings?: () => void;
   rollbackTaskId?: string | null;
   isLoading?: boolean;
 }
@@ -62,6 +63,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   onNavigateFocus,
   onFocusTask,
   onNavigateAuth,
+  onNavigateSettings,
   rollbackTaskId: propRollbackTaskId,
   isLoading,
 }) => {
@@ -226,19 +228,23 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
             </TouchableOpacity>
           )}
 
-          {onNavigateAuth && (
-            <TouchableOpacity
-              style={styles.profileHeaderBtn}
-              onPress={onNavigateAuth}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel={user ? `Tài khoản ${user.displayName}` : 'Đăng nhập tài khoản'}
-            >
-              <Text style={styles.profileIconText}>{user ? '👤' : '🔑'}</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.profileHeaderBtn}
+            onPress={() => {
+              if (onNavigateSettings) {
+                onNavigateSettings();
+              } else if (onNavigateAuth) {
+                onNavigateAuth();
+              }
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={user ? `Cài đặt hồ sơ ${user.displayName}` : 'Đăng nhập tài khoản'}
+          >
+            <Text style={styles.profileIconText}>{user ? '⚙️' : '🔑'}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
