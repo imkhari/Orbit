@@ -9,13 +9,25 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { BoardScreen } from './src/screens/BoardScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { AuthScreen } from './src/screens/AuthScreen';
 import { NotificationToast } from './src/components/NotificationToast';
 import { BoardSkeleton } from './src/components/BoardSkeleton';
 import { useTaskStore } from './src/store/useTaskStore';
-import { Task } from './src/types';
+import { useAuthStore } from './src/store/useAuthStore';
+import { Task, EnergyLevel } from './src/types';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'BOARD' | 'FOCUS'>('BOARD');
+  const {
+    user,
+    hasCompletedOnboarding,
+    completeOnboarding,
+    setEnergyLevel,
+  } = useAuthStore();
+
+  const [currentScreen, setCurrentScreen] = useState<'ONBOARDING' | 'AUTH' | 'BOARD' | 'FOCUS'>(
+    hasCompletedOnboarding ? 'BOARD' : 'ONBOARDING'
+  );
 
   // Quản lý trạng thái toàn cục với Zustand + AsyncStorage Cache
   const {
@@ -40,6 +52,13 @@ export default function App() {
     fetchTasks();
   }, [fetchTasks]);
 
+  // Đồng bộ màn hình ban đầu theo trạng thái onboarding
+  useEffect(() => {
+    if (!hasCompletedOnboarding && currentScreen !== 'AUTH') {
+      setCurrentScreen('ONBOARDING');
+    }
+  }, [hasCompletedOnboarding]);
+
   // Nhiệm vụ đang được tập trung duy nhất ở cột DOING (WIP = 1)
   const doingTask = tasks.find((t) => t.status === 'DOING') || null;
 
@@ -58,13 +77,31 @@ export default function App() {
 
       {/* Screen Presentation */}
       <View style={styles.screenContainer}>
-        {isLoading && tasks.length === 0 ? (
+        {currentScreen === 'ONBOARDING' ? (
+          <OnboardingScreen
+            onComplete={(energy: EnergyLevel) => {
+              completeOnboarding(energy);
+              setEnergyLevel(energy);
+              setCurrentScreen('BOARD');
+            }}
+            onNavigateAuth={() => setCurrentScreen('AUTH')}
+          />
+        ) : currentScreen === 'AUTH' ? (
+          <AuthScreen
+            onBack={() => setCurrentScreen(hasCompletedOnboarding ? 'BOARD' : 'ONBOARDING')}
+            onSuccess={() => {
+              fetchTasks();
+              setCurrentScreen('BOARD');
+            }}
+          />
+        ) : isLoading && tasks.length === 0 ? (
           // Hiển thị Skeleton mờ dịu mắt (thay thế spinner xoay tròn gây lo âu cho người ADHD)
           <BoardSkeleton />
         ) : currentScreen === 'BOARD' ? (
           <BoardScreen
             tasks={tasks}
             streak={streak}
+            user={user}
             onMoveTask={moveTask}
             onQuickAdd={addTask}
             onUpdateTask={updateTaskDetails}
@@ -72,6 +109,7 @@ export default function App() {
             onApplySubtasks={applySubtasks}
             onToggleSubtask={toggleSubtask}
             onNavigateFocus={() => setCurrentScreen('FOCUS')}
+            onNavigateAuth={() => setCurrentScreen('AUTH')}
             onFocusTask={async (task: Task) => {
               if (task.status !== 'DOING') {
                 const moved = await moveTask(task.id, 'DOING');
@@ -94,51 +132,53 @@ export default function App() {
         )}
       </View>
 
-      {/* Persistent Bottom Tab Navigation */}
-      <SafeAreaView style={styles.bottomNavSafeArea}>
-        <View style={styles.bottomNavBar}>
-          <TouchableOpacity
-            style={[
-              styles.navTabItem,
-              currentScreen === 'BOARD' && styles.navTabItemActive,
-            ]}
-            onPress={() => setCurrentScreen('BOARD')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.navTabIcon}>📋</Text>
-            <Text
+      {/* Persistent Bottom Tab Navigation (Only visible on Kanban and Focus screens) */}
+      {(currentScreen === 'BOARD' || currentScreen === 'FOCUS') && (
+        <SafeAreaView style={styles.bottomNavSafeArea}>
+          <View style={styles.bottomNavBar}>
+            <TouchableOpacity
               style={[
-                styles.navTabLabel,
-                currentScreen === 'BOARD' && styles.navTabLabelActive,
+                styles.navTabItem,
+                currentScreen === 'BOARD' && styles.navTabItemActive,
               ]}
+              onPress={() => setCurrentScreen('BOARD')}
+              activeOpacity={0.7}
             >
-              Bảng Kanban
-            </Text>
-          </TouchableOpacity>
+              <Text style={styles.navTabIcon}>📋</Text>
+              <Text
+                style={[
+                  styles.navTabLabel,
+                  currentScreen === 'BOARD' && styles.navTabLabelActive,
+                ]}
+              >
+                Bảng Kanban
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.navTabItem,
-              currentScreen === 'FOCUS' && styles.navTabItemActive,
-            ]}
-            onPress={() => setCurrentScreen('FOCUS')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.focusIconWrapper}>
-              <Text style={styles.navTabIcon}>🎯</Text>
-              {doingTask && <View style={styles.activeDoingIndicator} />}
-            </View>
-            <Text
+            <TouchableOpacity
               style={[
-                styles.navTabLabel,
-                currentScreen === 'FOCUS' && styles.navTabLabelActive,
+                styles.navTabItem,
+                currentScreen === 'FOCUS' && styles.navTabItemActive,
               ]}
+              onPress={() => setCurrentScreen('FOCUS')}
+              activeOpacity={0.7}
             >
-              Tập trung (25m)
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+              <View style={styles.focusIconWrapper}>
+                <Text style={styles.navTabIcon}>🎯</Text>
+                {doingTask && <View style={styles.activeDoingIndicator} />}
+              </View>
+              <Text
+                style={[
+                  styles.navTabLabel,
+                  currentScreen === 'FOCUS' && styles.navTabLabelActive,
+                ]}
+              >
+                Tập trung (25m)
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      )}
     </View>
   );
 }
@@ -152,31 +192,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bottomNavSafeArea: {
-    backgroundColor: '#0B1120',
+    backgroundColor: '#0F172A',
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
   },
   bottomNavBar: {
     flexDirection: 'row',
-    backgroundColor: '#0B1120',
-    borderTopWidth: 1,
-    borderTopColor: '#1E293B',
-    paddingVertical: 6,
+    height: 56,
+    backgroundColor: '#0F172A',
     paddingHorizontal: 16,
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-around',
   },
   navTabItem: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 12,
-    minHeight: 48,
+    marginHorizontal: 6,
+    gap: 8,
   },
   navTabItemActive: {
     backgroundColor: 'rgba(56, 189, 248, 0.12)',
   },
   navTabIcon: {
-    fontSize: 20,
-    marginBottom: 2,
+    fontSize: 18,
+  },
+  navTabLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  navTabLabelActive: {
+    color: '#38BDF8',
+    fontWeight: '700',
   },
   focusIconWrapper: {
     position: 'relative',
@@ -185,22 +236,11 @@ const styles = StyleSheet.create({
   },
   activeDoingIndicator: {
     position: 'absolute',
-    top: 0,
+    top: -2,
     right: -4,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#10B981',
-    borderWidth: 1.5,
-    borderColor: '#0B1120',
-  },
-  navTabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-  navTabLabelActive: {
-    color: '#38BDF8',
-    fontWeight: '700',
+    backgroundColor: '#38BDF8',
   },
 });

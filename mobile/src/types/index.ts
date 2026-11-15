@@ -152,3 +152,23 @@ export interface ApiResponse<T> {
   message?: string;
   timestamp?: string;
 }
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  user: UserProfile;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  displayName: string;
+  initialEnergyLevel?: EnergyLevel;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}

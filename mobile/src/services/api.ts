@@ -13,6 +13,10 @@ import {
   FocusSessionResponse,
   LogFocusSessionRequest,
   UpdateTaskRequest,
+  AuthResponse,
+  RegisterRequest,
+  LoginRequest,
+  UserProfile,
 } from '../types';
 
 /**
@@ -39,6 +43,25 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// Request interceptor: tự động gắn Timezone header và JWT Bearer Token
+apiClient.interceptors.request.use((config) => {
+  try {
+    // 1. Gắn Timezone client để bảo vệ chuỗi ngày Streak theo giờ địa phương
+    const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Ho_Chi_Minh';
+    config.headers['X-Timezone-Offset'] = clientTz;
+
+    // 2. Gắn JWT Bearer token nếu đã đăng nhập
+    const { useAuthStore } = require('../store/useAuthStore');
+    const token = useAuthStore.getState()?.token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // ignore
+  }
+  return config;
 });
 
 /**
@@ -265,5 +288,61 @@ export const FocusSessionService = {
     );
 
     return (response.data as ApiResponse<FocusSessionResponse>)?.data ?? (response.data as FocusSessionResponse);
+  },
+};
+
+export const AuthService = {
+  /**
+   * Đăng ký tài khoản người dùng mới (POST /api/v1/auth/register)
+   */
+  register: async (req: RegisterRequest): Promise<AuthResponse> => {
+    const response = await apiClient.post<ApiResponse<AuthResponse> | AuthResponse>(
+      '/auth/register',
+      req
+    );
+    return (response.data as ApiResponse<AuthResponse>)?.data ?? (response.data as AuthResponse);
+  },
+
+  /**
+   * Đăng nhập người dùng (POST /api/v1/auth/login)
+   */
+  login: async (req: LoginRequest): Promise<AuthResponse> => {
+    const response = await apiClient.post<ApiResponse<AuthResponse> | AuthResponse>(
+      '/auth/login',
+      req
+    );
+    return (response.data as ApiResponse<AuthResponse>)?.data ?? (response.data as AuthResponse);
+  },
+
+  /**
+   * Làm mới Access Token (POST /api/v1/auth/refresh)
+   */
+  refreshToken: async (refreshToken: string): Promise<AuthResponse> => {
+    const response = await apiClient.post<ApiResponse<AuthResponse> | AuthResponse>(
+      '/auth/refresh',
+      { refreshToken }
+    );
+    return (response.data as ApiResponse<AuthResponse>)?.data ?? (response.data as AuthResponse);
+  },
+
+  /**
+   * Lấy thông tin người dùng hiện tại (GET /api/v1/auth/me)
+   */
+  getCurrentUser: async (): Promise<UserProfile> => {
+    const response = await apiClient.get<ApiResponse<UserProfile> | UserProfile>(
+      '/auth/me'
+    );
+    return (response.data as ApiResponse<UserProfile>)?.data ?? (response.data as UserProfile);
+  },
+
+  /**
+   * Cập nhật mức năng lượng hiện tại của người dùng (PATCH /api/v1/auth/me/energy)
+   */
+  updateEnergyLevel: async (energyLevel: EnergyLevel): Promise<UserProfile> => {
+    const response = await apiClient.patch<ApiResponse<UserProfile> | UserProfile>(
+      '/auth/me/energy',
+      { energyLevel }
+    );
+    return (response.data as ApiResponse<UserProfile>)?.data ?? (response.data as UserProfile);
   },
 };

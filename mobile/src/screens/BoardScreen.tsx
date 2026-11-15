@@ -24,6 +24,7 @@ import {
 export interface BoardScreenProps {
   tasks: Task[];
   streak?: StreakState;
+  user?: import('../types').UserProfile | null;
   onMoveTask: (taskId: string, targetStatus: TaskStatus) => void | Promise<boolean> | boolean;
   onQuickAdd: (title: string, energy: EnergyLevel, description?: string) => void;
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
@@ -32,6 +33,7 @@ export interface BoardScreenProps {
   onToggleSubtask?: (taskId: string, subtaskId: string) => void;
   onNavigateFocus?: () => void;
   onFocusTask?: (task: Task) => void;
+  onNavigateAuth?: () => void;
   rollbackTaskId?: string | null;
   isLoading?: boolean;
 }
@@ -48,6 +50,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
     isFrozenToday: false,
     gentleMessage: 'Mỗi bước nhỏ đều tạo nên bước nhảy lớn 🌿',
   },
+  user,
   onMoveTask,
   onQuickAdd,
   onUpdateTask,
@@ -56,6 +59,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   onToggleSubtask,
   onNavigateFocus,
   onFocusTask,
+  onNavigateAuth,
   rollbackTaskId: propRollbackTaskId,
   isLoading,
 }) => {
@@ -183,6 +187,20 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
               accessibilityHint="Chạm để chuyển sang chế độ tập trung với Pomodoro timer"
             >
               <Text style={styles.focusHeaderBtnText}>🎯 Focus</Text>
+            </TouchableOpacity>
+          )}
+
+          {onNavigateAuth && (
+            <TouchableOpacity
+              style={styles.profileHeaderBtn}
+              onPress={onNavigateAuth}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={user ? `Tài khoản ${user.displayName}` : 'Đăng nhập tài khoản'}
+            >
+              <Text style={styles.profileIconText}>{user ? '👤' : '🔑'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -471,6 +489,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  profileHeaderBtn: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    minHeight: 40,
+    minWidth: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileIconText: {
+    fontSize: 16,
   },
   modalBackdrop: {
     flex: 1,
