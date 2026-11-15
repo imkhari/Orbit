@@ -48,6 +48,12 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 
     long countByBoardId(UUID boardId);
 
+    java.util.Optional<Task> findFirstByUserIdAndStatus(UUID userId, Task.TaskStatus status);
+
+    java.util.Optional<Task> findFirstByStatus(Task.TaskStatus status);
+
+    List<Task> findByUserId(UUID userId);
+
     long countByBoardIdAndStatus(UUID boardId, Task.TaskStatus status);
 
     List<Task> findByUserIdAndBoardIsNull(UUID userId);

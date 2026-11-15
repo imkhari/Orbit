@@ -334,5 +334,24 @@ Content-Type: application/json
 #   -H "Content-Type: application/json" \
 #   -d '{"status": "TODO"}'
 
+### ------------------------------------------------------------------------------
+### 21. Cứu Tê Liệt Nhận Thức (Analysis Paralysis Rescue - POST /api/v1/tasks/rescue)
+### Thuật toán P(T) chọn duy nhất 1 nhiệm vụ phù hợp nhất và 1 vi bước khởi động (< 5m)
+# @name rescueTask
+POST {{baseUrl}}/tasks/rescue
+Content-Type: application/json
+
+{
+  "currentEnergy": "LOW",
+  "availableMinutes": 15
+}
+
+###
+# Curl tương đương:
+# curl -X POST http://localhost:8080/api/v1/tasks/rescue \
+#   -H "Content-Type: application/json" \
+#   -d '{"currentEnergy": "LOW", "availableMinutes": 15}'
+
+
 
 

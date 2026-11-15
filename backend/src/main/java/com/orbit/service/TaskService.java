@@ -64,6 +64,13 @@ public interface TaskService {
     List<TaskResponse> getTasksByBoardAndStatus(UUID boardId, Task.TaskStatus status);
 
     /**
+     * Giải cứu người dùng khỏi trạng thái tê liệt nhận thức (Analysis Paralysis Rescue):
+     * Tự động chọn ra DUY NHẤT 1 việc tối ưu nhất dựa trên thuật toán P(T) và thời lượng khả dụng,
+     * kèm 1 vi bước khởi động (< 5 phút) để vượt qua sức ỳ tâm lý ban đầu.
+     */
+    com.orbit.dto.response.RescueTaskResponse recommendRescueTask(com.orbit.dto.request.RescueTaskRequest request);
+
+    /**
      * Xóa nhiệm vụ theo ID.
      */
     void deleteTask(UUID taskId);

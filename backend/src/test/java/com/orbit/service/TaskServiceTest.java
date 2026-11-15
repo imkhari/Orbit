@@ -200,4 +200,44 @@ class TaskServiceTest {
         // Đảm bảo không gọi trừ điểm hay phạt người dùng
         verify(streakService, never()).recordActivity(eq(mockUser.getId()), intThat(xp -> xp < 0));
     }
+
+    @Test
+    @DisplayName("Analysis Paralysis Rescue: Tự động chọn 1 task tối ưu nhất và trả về starter subtask < 5 phút")
+    void recommendRescueTask_FindsOptimalTaskAndStarterSubtask() {
+        Task lowTask = Task.builder()
+                .id(UUID.randomUUID())
+                .user(mockUser)
+                .title("Dọn bàn làm việc")
+                .energyRequired(Task.EnergyRequirement.LOW)
+                .status(Task.TaskStatus.TODO)
+                .estimatedMinutes(10)
+                .build();
+
+        Task highTask = Task.builder()
+                .id(UUID.randomUUID())
+                .user(mockUser)
+                .title("Viết báo cáo chuyên đề lớn")
+                .energyRequired(Task.EnergyRequirement.HIGH)
+                .status(Task.TaskStatus.TODO)
+                .estimatedMinutes(120)
+                .build();
+
+        when(userRepository.findByEmail("demo@orbit.app")).thenReturn(Optional.of(mockUser));
+        when(taskRepository.findByUserIdOrderByPositionAsc(mockUser.getId())).thenReturn(java.util.List.of(lowTask, highTask));
+
+        com.orbit.dto.request.RescueTaskRequest request = new com.orbit.dto.request.RescueTaskRequest(
+                null,
+                Task.EnergyRequirement.LOW,
+                15
+        );
+
+        com.orbit.dto.response.RescueTaskResponse response = taskService.recommendRescueTask(request);
+
+        assertThat(response).isNotNull();
+        // Với User LOW và thời gian rảnh 15m, lowTask phải được chọn
+        assertThat(response.task().id()).isEqualTo(lowTask.getId());
+        assertThat(response.starterSubtask()).isNotNull();
+        assertThat(response.starterSubtask().estimatedMinutes()).isLessThanOrEqualTo(5);
+        assertThat(response.gentleEncouragement()).contains("Đừng nghĩ về toàn bộ nhiệm vụ to lớn");
+    }
 }

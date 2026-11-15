@@ -159,6 +159,22 @@ public class TaskController {
     }
 
     /**
+     * Giải cứu người dùng khỏi trạng thái tê liệt nhận thức (Analysis Paralysis Rescue):
+     * Thuật toán P(T) tự động chọn DUY NHẤT 1 việc tối ưu nhất kèm vi bước khởi động (< 5 phút).
+     */
+    @PostMapping("/rescue")
+    public ResponseEntity<ApiResponse<com.orbit.dto.response.RescueTaskResponse>> recommendRescueTask(
+        @RequestBody(required = false) com.orbit.dto.request.RescueTaskRequest request
+    ) {
+        log.info("REST request for ADHD Analysis Paralysis Rescue with energy: {}",
+            request != null ? request.currentEnergy() : "DEFAULT");
+        com.orbit.dto.response.RescueTaskResponse response = taskService.recommendRescueTask(
+            request != null ? request : new com.orbit.dto.request.RescueTaskRequest(null, null, null)
+        );
+        return ResponseEntity.ok(ApiResponse.ok(response, "Orbit đã tìm thấy nhiệm vụ khởi động nhẹ nhàng nhất cho bạn! 🌿"));
+    }
+
+    /**
      * Lấy thông tin chi tiết nhiệm vụ theo ID.
      */
     @GetMapping("/{id}")
