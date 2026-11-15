@@ -20,13 +20,15 @@ import {
   EnergyFilterWidget,
   EnergyFilterType,
 } from '../components/EnergyFilterWidget';
+import { BoardSwitcherModal } from '../components/BoardSwitcherModal';
+import { useBoardStore } from '../store/useBoardStore';
 
 export interface BoardScreenProps {
   tasks: Task[];
   streak?: StreakState;
   user?: import('../types').UserProfile | null;
   onMoveTask: (taskId: string, targetStatus: TaskStatus) => void | Promise<boolean> | boolean;
-  onQuickAdd: (title: string, energy: EnergyLevel, description?: string) => void;
+  onQuickAdd: (title: string, energy: EnergyLevel, description?: string, boardId?: string) => void;
   onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
   onDeleteTask?: (taskId: string) => void;
   onApplySubtasks: (taskId: string, newSubtasks: Subtask[]) => void;
@@ -68,6 +70,25 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   const [selectedDetailTaskId, setSelectedDetailTaskId] = useState<string | null>(null);
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyFilterType>('ALL');
   const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
+  const [showBoardSwitcher, setShowBoardSwitcher] = useState<boolean>(false);
+
+  // Zustand Board Store
+  const { boards, activeBoardId } = useBoardStore();
+
+  const activeBoard = useMemo(() => {
+    return boards.find((b) => b.id === activeBoardId) || boards[0] || null;
+  }, [boards, activeBoardId]);
+
+  // Lọc tác vụ theo board đang được chọn
+  const boardFilteredTasks = useMemo(() => {
+    if (!activeBoardId) return tasks;
+    const isFirstActiveBoard = boards.filter((b) => !b.isArchived)[0]?.id === activeBoardId;
+    return tasks.filter((t) => {
+      if (t.boardId === activeBoardId) return true;
+      if (isFirstActiveBoard && (!t.boardId || t.boardId === 'board-main')) return true;
+      return false;
+    });
+  }, [tasks, activeBoardId, boards]);
 
   // Sync selected task with live tasks in store
   const selectedDetailTask = selectedDetailTaskId
@@ -86,7 +107,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
 
   // Quick Capture wraps parent callback and switches to BACKLOG column
   const handleQuickAdd = (title: string, energy: EnergyLevel, description?: string) => {
-    onQuickAdd(title, energy, description);
+    onQuickAdd(title, energy, description, activeBoardId || undefined);
     setActiveColumn('BACKLOG');
   };
 
@@ -110,28 +131,28 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
     {
       status: 'BACKLOG',
       label: 'Backlog',
-      count: tasks.filter((t) => t.status === 'BACKLOG').length,
+      count: boardFilteredTasks.filter((t) => t.status === 'BACKLOG').length,
     },
     {
       status: 'TODO',
       label: 'Cần làm',
-      count: tasks.filter((t) => t.status === 'TODO').length,
+      count: boardFilteredTasks.filter((t) => t.status === 'TODO').length,
     },
     {
       status: 'DOING',
       label: 'Đang làm',
-      count: tasks.filter((t) => t.status === 'DOING').length,
+      count: boardFilteredTasks.filter((t) => t.status === 'DOING').length,
     },
     {
       status: 'DONE',
       label: 'Đã xong',
-      count: tasks.filter((t) => t.status === 'DONE').length,
+      count: boardFilteredTasks.filter((t) => t.status === 'DONE').length,
     },
   ];
 
   // Dynamic Re-ranking & Dimming based on Energy Filter
   const displayedTasks = useMemo(() => {
-    const columnTasks = tasks.filter((t) => t.status === activeColumn);
+    const columnTasks = boardFilteredTasks.filter((t) => t.status === activeColumn);
 
     if (selectedEnergy === 'ALL') {
       return columnTasks.map((t) => ({ task: t, isDimmed: false }));
@@ -144,7 +165,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
       ...matched.map((t) => ({ task: t, isDimmed: false })),
       ...unmatched.map((t) => ({ task: t, isDimmed: true })),
     ];
-  }, [tasks, activeColumn, selectedEnergy]);
+  }, [boardFilteredTasks, activeColumn, selectedEnergy]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -152,6 +173,21 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>🌌 Orbit</Text>
+          <TouchableOpacity
+            style={styles.boardChip}
+            onPress={() => setShowBoardSwitcher(true)}
+            activeOpacity={0.7}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Chuyển bảng công việc. Bảng hiện tại: ${activeBoard?.title || 'Học Tập'}`}
+          >
+            <Text style={styles.boardChipIcon}>{activeBoard?.icon || '📋'}</Text>
+            <Text style={styles.boardChipText} numberOfLines={1}>
+              {activeBoard?.title || 'Học Tập'}
+            </Text>
+            <Text style={styles.boardChipArrow}>▾</Text>
+          </TouchableOpacity>
+
           {isLoading && (
             <View style={styles.syncBadge}>
               <Text style={styles.syncBadgeText}>Đồng bộ...</Text>
@@ -407,6 +443,12 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
         onOpenAIDecompose={(t) => setDecomposingTask(t)}
         onStartFocus={(t) => handleFocusTaskAction(t)}
       />
+
+      {/* Modal Chuyển Đổi Bảng Công Việc (Screen 3) */}
+      <BoardSwitcherModal
+        visible={showBoardSwitcher}
+        onClose={() => setShowBoardSwitcher(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -441,6 +483,33 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#F8FAFC',
     letterSpacing: -0.5,
+  },
+  boardChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+    maxWidth: 150,
+    minHeight: 34,
+  },
+  boardChipIcon: {
+    fontSize: 13,
+    marginRight: 4,
+  },
+  boardChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#38BDF8',
+    flexShrink: 1,
+  },
+  boardChipArrow: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginLeft: 4,
   },
   syncBadge: {
     backgroundColor: 'rgba(56, 189, 248, 0.15)',

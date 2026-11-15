@@ -17,6 +17,9 @@ import {
   RegisterRequest,
   LoginRequest,
   UserProfile,
+  BoardResponse,
+  CreateBoardRequest,
+  UpdateBoardRequest,
 } from '../types';
 
 /**
@@ -84,7 +87,7 @@ export const mapTaskResponseToTask = (
 
   return {
     id: res.id,
-    boardId: 'board-main',
+    boardId: res.boardId || 'board-main',
     title: res.title,
     description: res.description,
     status: res.status,
@@ -101,11 +104,14 @@ export const mapTaskResponseToTask = (
 
 export const TaskService = {
   /**
-   * Lấy danh sách nhiệm vụ từ backend (GET /api/v1/tasks)
+   * Lấy danh sách nhiệm vụ từ backend (GET /api/v1/tasks?boardId=...)
    */
-  getTasks: async (status?: TaskStatus): Promise<Task[]> => {
+  getTasks: async (status?: TaskStatus, boardId?: string): Promise<Task[]> => {
     const response = await apiClient.get<ApiResponse<TaskResponse[]> | TaskResponse[]>('/tasks', {
-      params: status ? { status } : undefined,
+      params: {
+        ...(status ? { status } : {}),
+        ...(boardId ? { boardId } : {}),
+      },
     });
 
     const rawList: TaskResponse[] = Array.isArray(response.data)
@@ -145,12 +151,14 @@ export const TaskService = {
   quickCapture: async (
     title: string,
     energyLevel: EnergyLevel = 'MEDIUM',
-    description?: string
+    description?: string,
+    boardId?: string
   ): Promise<Task> => {
     const response = await apiClient.post<ApiResponse<TaskResponse> | TaskResponse>('/tasks', {
       title,
       energyRequired: energyLevel,
       description,
+      boardId,
     });
 
     const item: TaskResponse = (response.data as ApiResponse<TaskResponse>)?.data ?? (response.data as TaskResponse);
@@ -346,3 +354,48 @@ export const AuthService = {
     return (response.data as ApiResponse<UserProfile>)?.data ?? (response.data as UserProfile);
   },
 };
+
+export const BoardService = {
+  /**
+   * Lấy danh sách các bảng hoạt động của người dùng (GET /api/v1/boards)
+   */
+  getBoards: async (): Promise<BoardResponse[]> => {
+    const response = await apiClient.get<ApiResponse<BoardResponse[]> | BoardResponse[]>('/boards');
+    const rawList: BoardResponse[] = Array.isArray(response.data)
+      ? response.data
+      : (response.data as ApiResponse<BoardResponse[]>)?.data ?? [];
+    return rawList;
+  },
+
+  /**
+   * Tạo bảng mới (POST /api/v1/boards) - giới hạn 5 bảng (Edge Case 07)
+   */
+  createBoard: async (data: CreateBoardRequest): Promise<BoardResponse> => {
+    const response = await apiClient.post<ApiResponse<BoardResponse> | BoardResponse>('/boards', data);
+    return (response.data as ApiResponse<BoardResponse>)?.data ?? (response.data as BoardResponse);
+  },
+
+  /**
+   * Cập nhật thông tin bảng (PUT /api/v1/boards/{id})
+   */
+  updateBoard: async (boardId: string, data: UpdateBoardRequest): Promise<BoardResponse> => {
+    const response = await apiClient.put<ApiResponse<BoardResponse> | BoardResponse>(`/boards/${boardId}`, data);
+    return (response.data as ApiResponse<BoardResponse>)?.data ?? (response.data as BoardResponse);
+  },
+
+  /**
+   * Lưu trữ bảng để giải phóng không gian (PATCH /api/v1/boards/{id}/archive)
+   */
+  archiveBoard: async (boardId: string): Promise<BoardResponse> => {
+    const response = await apiClient.patch<ApiResponse<BoardResponse> | BoardResponse>(`/boards/${boardId}/archive`);
+    return (response.data as ApiResponse<BoardResponse>)?.data ?? (response.data as BoardResponse);
+  },
+
+  /**
+   * Xóa vĩnh viễn bảng (DELETE /api/v1/boards/{id})
+   */
+  deleteBoard: async (boardId: string): Promise<void> => {
+    await apiClient.delete(`/boards/${boardId}`);
+  },
+};
+

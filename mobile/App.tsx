@@ -15,6 +15,7 @@ import { NotificationToast } from './src/components/NotificationToast';
 import { BoardSkeleton } from './src/components/BoardSkeleton';
 import { useTaskStore } from './src/store/useTaskStore';
 import { useAuthStore } from './src/store/useAuthStore';
+import { useBoardStore } from './src/store/useBoardStore';
 import { Task, EnergyLevel } from './src/types';
 
 export default function App() {
@@ -47,10 +48,13 @@ export default function App() {
     hideToast,
   } = useTaskStore();
 
-  // Đồng bộ danh sách nhiệm vụ và streak từ backend ngay khi mở app
+  const { fetchBoards } = useBoardStore();
+
+  // Đồng bộ danh sách nhiệm vụ, bảng và streak từ backend ngay khi mở app
   useEffect(() => {
     fetchTasks();
-  }, [fetchTasks]);
+    fetchBoards();
+  }, [fetchTasks, fetchBoards]);
 
   // Đồng bộ màn hình ban đầu theo trạng thái onboarding
   useEffect(() => {
@@ -91,6 +95,7 @@ export default function App() {
             onBack={() => setCurrentScreen(hasCompletedOnboarding ? 'BOARD' : 'ONBOARDING')}
             onSuccess={() => {
               fetchTasks();
+              fetchBoards();
               setCurrentScreen('BOARD');
             }}
           />

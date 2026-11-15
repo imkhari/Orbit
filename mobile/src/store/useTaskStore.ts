@@ -32,9 +32,9 @@ export interface TaskStoreState {
   toast: ToastNotificationState;
 
   // Actions
-  fetchTasks: () => Promise<void>;
+  fetchTasks: (boardId?: string) => Promise<void>;
   fetchStreak: () => Promise<void>;
-  addTask: (title: string, energy?: EnergyLevel, description?: string) => Promise<void>;
+  addTask: (title: string, energy?: EnergyLevel, description?: string, boardId?: string) => Promise<void>;
   updateTaskDetails: (taskId: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   moveTask: (taskId: string, targetStatus: TaskStatus) => Promise<boolean>;
@@ -74,10 +74,10 @@ export const useTaskStore = create<TaskStoreState>()(
        * 1. fetchTasks(): Gọi API lấy dữ liệu; nếu mất mạng thì giữ nguyên dữ liệu trong AsyncStorage cache.
        * Đồng thời đồng bộ trạng thái Streak và Khiên Bảo Vệ.
        */
-      fetchTasks: async () => {
+      fetchTasks: async (boardId?: string) => {
         set({ isLoading: true, error: null });
         try {
-          const fetchedTasks = await TaskService.getTasks();
+          const fetchedTasks = await TaskService.getTasks(undefined, boardId);
           const currentTasks = get().tasks;
 
           // Hợp nhất dữ liệu server với cache địa phương, bảo tồn subtasks đã có (loại bỏ N+1 HTTP request)
@@ -143,7 +143,7 @@ export const useTaskStore = create<TaskStoreState>()(
        * và gọi ngầm TaskService.quickCapture.
        * Hỗ trợ Edge Case 05: Tự động tách 100 ký tự đầu làm tiêu đề nếu văn bản nhập quá dài.
        */
-      addTask: async (title: string, energy: EnergyLevel = 'MEDIUM', description?: string) => {
+      addTask: async (title: string, energy: EnergyLevel = 'MEDIUM', description?: string, boardId?: string) => {
         const cleanTitle = title.trim();
         if (!cleanTitle) return;
 
@@ -162,7 +162,7 @@ export const useTaskStore = create<TaskStoreState>()(
         const tempId = `temp-${Date.now()}`;
         const optimisticTask: Task = {
           id: tempId,
-          boardId: 'board-main',
+          boardId: boardId || 'board-main',
           title: effectiveTitle,
           description: effectiveDesc,
           status: 'BACKLOG',
@@ -195,7 +195,7 @@ export const useTaskStore = create<TaskStoreState>()(
 
         // Gọi ngầm lên API backend
         try {
-          const serverTask = await TaskService.quickCapture(effectiveTitle, energy, effectiveDesc);
+          const serverTask = await TaskService.quickCapture(effectiveTitle, energy, effectiveDesc, boardId);
           set((state) => ({
             tasks: state.tasks.map((t) =>
               t.id === tempId ? { ...serverTask, subtasks: t.subtasks } : t

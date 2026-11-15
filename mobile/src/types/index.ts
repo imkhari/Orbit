@@ -131,6 +131,7 @@ export interface UpdateTaskRequest {
 export interface TaskResponse {
   id: string;
   userId?: string;
+  boardId?: string;
   title: string;
   description?: string;
   status: TaskStatus;
@@ -144,6 +145,35 @@ export interface TaskResponse {
   createdAt: string;
   completedAt?: string;
   subtasks?: SubtaskResponse[];
+}
+
+export interface BoardResponse {
+  id: string;
+  userId?: string;
+  title: string;
+  icon: string;
+  colorTheme?: string;
+  isArchived: boolean;
+  position: number;
+  totalTasks: number;
+  doingTasks: number;
+  todoTasks: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateBoardRequest {
+  title: string;
+  icon?: string;
+  colorTheme?: string;
+}
+
+export interface UpdateBoardRequest {
+  title?: string;
+  icon?: string;
+  colorTheme?: string;
+  position?: number;
+  isArchived?: boolean;
 }
 
 export interface ApiResponse<T> {
