@@ -16,6 +16,7 @@ interface TaskCardProps {
   onOpenAIDecompose: (task: Task) => void;
   onFocusTask?: (task: Task) => void;
   onToggleSubtask?: (taskId: string, subtaskId: string) => void;
+  onOpenDetail?: (task: Task) => void;
   isDimmed?: boolean;
   triggerRollback?: boolean;
 }
@@ -26,6 +27,7 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({
   onOpenAIDecompose,
   onFocusTask,
   onToggleSubtask,
+  onOpenDetail,
   isDimmed = false,
   triggerRollback = false,
 }) => {
@@ -189,24 +191,32 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({
         { transform: [{ translateX }] },
       ]}
     >
-      {/* Header: Title & Energy Badge */}
-      <View style={styles.headerRow}>
-        <Text style={styles.taskTitle}>{task.title}</Text>
-        <View style={[styles.energyPill, { backgroundColor: energyInfo.bg }]}>
-          <Text style={[styles.energyText, { color: energyInfo.color }]}>
-            {energyInfo.label}
-          </Text>
+      {/* Header: Title & Energy Badge (Tap to view/edit details) */}
+      <TouchableOpacity
+        onPress={() => onOpenDetail?.(task)}
+        activeOpacity={0.7}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={`Xem và chỉnh sửa chi tiết nhiệm vụ ${task.title}`}
+      >
+        <View style={styles.headerRow}>
+          <Text style={styles.taskTitle}>{task.title}</Text>
+          <View style={[styles.energyPill, { backgroundColor: energyInfo.bg }]}>
+            <Text style={[styles.energyText, { color: energyInfo.color }]}>
+              {energyInfo.label}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Description if present */}
-      {task.description ? (
-        <Text style={styles.taskDescription} numberOfLines={2}>
-          {task.description}
-        </Text>
-      ) : null}
+        {/* Description if present */}
+        {task.description ? (
+          <Text style={styles.taskDescription} numberOfLines={2}>
+            {task.description}
+          </Text>
+        ) : null}
+      </TouchableOpacity>
 
-      {/* Meta tags: Estimated Time & Subtasks count */}
+      {/* Meta tags: Estimated Time, Subtasks count, and Detail link */}
       <View style={styles.metaRow}>
         {task.estimatedMinutes ? (
           <View style={styles.metaBadge}>
@@ -229,6 +239,20 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({
             </Text>
           </TouchableOpacity>
         ) : null}
+
+        {onOpenDetail && (
+          <TouchableOpacity
+            style={styles.detailBadge}
+            onPress={() => onOpenDetail(task)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Mở chi tiết nhiệm vụ ${task.title}`}
+          >
+            <Text style={styles.detailBadgeText}>📝 Chi tiết</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Progress Bar & Subtask Check-off Section */}
@@ -389,6 +413,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#CBD5E1',
     fontWeight: '500',
+  },
+  detailBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  detailBadgeText: {
+    fontSize: 11,
+    color: '#38BDF8',
+    fontWeight: '600',
   },
   subtasksContainer: {
     backgroundColor: 'rgba(15, 23, 42, 0.35)',

@@ -119,6 +119,15 @@ export interface LogFocusSessionRequest {
   isCompleted?: boolean;
 }
 
+export interface UpdateTaskRequest {
+  title?: string;
+  description?: string;
+  energyRequired?: EnergyLevel;
+  urgency?: UrgencyLevel;
+  estimatedMinutes?: number;
+  deadline?: string;
+}
+
 export interface TaskResponse {
   id: string;
   userId?: string;

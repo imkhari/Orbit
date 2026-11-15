@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { EnergyLevel } from '../types';
 
 interface QuickCaptureBarProps {
-  onAddTask: (title: string, energy: EnergyLevel) => void;
+  onAddTask: (title: string, energy: EnergyLevel, description?: string) => void;
 }
 
 export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) => {

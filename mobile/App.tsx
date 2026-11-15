@@ -24,6 +24,8 @@ export default function App() {
     isLoading,
     fetchTasks,
     addTask,
+    updateTaskDetails,
+    deleteTask,
     moveTask,
     toggleSubtask,
     applySubtasks,
@@ -65,6 +67,8 @@ export default function App() {
             streak={streak}
             onMoveTask={moveTask}
             onQuickAdd={addTask}
+            onUpdateTask={updateTaskDetails}
+            onDeleteTask={deleteTask}
             onApplySubtasks={applySubtasks}
             onToggleSubtask={toggleSubtask}
             onNavigateFocus={() => setCurrentScreen('FOCUS')}

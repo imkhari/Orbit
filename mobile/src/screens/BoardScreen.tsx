@@ -15,6 +15,7 @@ import { StreakState } from '../store/useTaskStore';
 import { TaskCard } from '../components/TaskCard';
 import { QuickCaptureBar } from '../components/QuickCaptureBar';
 import { AIDecomposeModal } from '../components/AIDecomposeModal';
+import { TaskDetailModal } from '../components/TaskDetailModal';
 import {
   EnergyFilterWidget,
   EnergyFilterType,
@@ -24,7 +25,9 @@ export interface BoardScreenProps {
   tasks: Task[];
   streak?: StreakState;
   onMoveTask: (taskId: string, targetStatus: TaskStatus) => void | Promise<boolean> | boolean;
-  onQuickAdd: (title: string, energy: EnergyLevel) => void;
+  onQuickAdd: (title: string, energy: EnergyLevel, description?: string) => void;
+  onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
+  onDeleteTask?: (taskId: string) => void;
   onApplySubtasks: (taskId: string, newSubtasks: Subtask[]) => void;
   onToggleSubtask?: (taskId: string, subtaskId: string) => void;
   onNavigateFocus?: () => void;
@@ -47,6 +50,8 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   },
   onMoveTask,
   onQuickAdd,
+  onUpdateTask,
+  onDeleteTask,
   onApplySubtasks,
   onToggleSubtask,
   onNavigateFocus,
@@ -56,8 +61,14 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
 }) => {
   const [activeColumn, setActiveColumn] = useState<TaskStatus>('TODO');
   const [decomposingTask, setDecomposingTask] = useState<Task | null>(null);
+  const [selectedDetailTaskId, setSelectedDetailTaskId] = useState<string | null>(null);
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyFilterType>('ALL');
   const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
+
+  // Sync selected task with live tasks in store
+  const selectedDetailTask = selectedDetailTaskId
+    ? tasks.find((t) => t.id === selectedDetailTaskId) || null
+    : null;
 
   // Task movement with WIP=1 Spring Physics & Haptics delegation to useTaskStore
   const handleTaskMovement = (taskId: string, targetStatus: TaskStatus) => {
@@ -70,8 +81,8 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   };
 
   // Quick Capture wraps parent callback and switches to BACKLOG column
-  const handleQuickAdd = (title: string, energy: EnergyLevel) => {
-    onQuickAdd(title, energy);
+  const handleQuickAdd = (title: string, energy: EnergyLevel, description?: string) => {
+    onQuickAdd(title, energy, description);
     setActiveColumn('BACKLOG');
   };
 
@@ -344,6 +355,7 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
             onOpenAIDecompose={(t) => setDecomposingTask(t)}
             onFocusTask={handleFocusTaskAction}
             onToggleSubtask={onToggleSubtask}
+            onOpenDetail={(t) => setSelectedDetailTaskId(t.id)}
             isDimmed={item.isDimmed}
             triggerRollback={propRollbackTaskId === item.task.id}
           />
@@ -359,6 +371,23 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
         task={decomposingTask}
         onClose={() => setDecomposingTask(null)}
         onApplySubtasks={onApplySubtasks}
+      />
+
+      {/* Task Detail & Subtasks Checklist Modal (Screen 6) */}
+      <TaskDetailModal
+        visible={selectedDetailTask !== null}
+        task={selectedDetailTask}
+        onClose={() => setSelectedDetailTaskId(null)}
+        onUpdateTask={(taskId, updates) => {
+          onUpdateTask?.(taskId, updates);
+        }}
+        onDeleteTask={(taskId) => {
+          onDeleteTask?.(taskId);
+        }}
+        onToggleSubtask={onToggleSubtask || (() => {})}
+        onApplySubtasks={onApplySubtasks}
+        onOpenAIDecompose={(t) => setDecomposingTask(t)}
+        onStartFocus={(t) => handleFocusTaskAction(t)}
       />
     </SafeAreaView>
   );

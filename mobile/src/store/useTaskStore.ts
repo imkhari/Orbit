@@ -34,7 +34,9 @@ export interface TaskStoreState {
   // Actions
   fetchTasks: () => Promise<void>;
   fetchStreak: () => Promise<void>;
-  addTask: (title: string, energy?: EnergyLevel) => Promise<void>;
+  addTask: (title: string, energy?: EnergyLevel, description?: string) => Promise<void>;
+  updateTaskDetails: (taskId: string, updates: Partial<Task>) => Promise<void>;
+  deleteTask: (taskId: string) => Promise<void>;
   moveTask: (taskId: string, targetStatus: TaskStatus) => Promise<boolean>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   applySubtasks: (taskId: string, newSubtasks: Subtask[]) => Promise<void>;
@@ -137,18 +139,32 @@ export const useTaskStore = create<TaskStoreState>()(
       },
 
       /**
-       * 2. addTask(title, energy): Thực hiện Optimistic Prepend (thêm ngay vào đầu cột BACKLOG < 5s)
+       * 2. addTask(title, energy, description): Thực hiện Optimistic Prepend (thêm ngay vào đầu cột BACKLOG < 5s)
        * và gọi ngầm TaskService.quickCapture.
+       * Hỗ trợ Edge Case 05: Tự động tách 100 ký tự đầu làm tiêu đề nếu văn bản nhập quá dài.
        */
-      addTask: async (title: string, energy: EnergyLevel = 'MEDIUM') => {
+      addTask: async (title: string, energy: EnergyLevel = 'MEDIUM', description?: string) => {
         const cleanTitle = title.trim();
         if (!cleanTitle) return;
+
+        let effectiveTitle = cleanTitle;
+        let effectiveDesc = description?.trim();
+        let wasAutoSplit = false;
+
+        // Edge Case 05 trong PRD: Tiêu đề dài > 100 ký tự -> Tự động cắt 100 ký tự làm title, phần còn lại làm description
+        if (cleanTitle.length > 100) {
+          wasAutoSplit = true;
+          effectiveTitle = cleanTitle.slice(0, 100).trim();
+          const remainder = cleanTitle.slice(100).trim();
+          effectiveDesc = effectiveDesc ? `${remainder}\n\n${effectiveDesc}` : remainder;
+        }
 
         const tempId = `temp-${Date.now()}`;
         const optimisticTask: Task = {
           id: tempId,
           boardId: 'board-main',
-          title: cleanTitle,
+          title: effectiveTitle,
+          description: effectiveDesc,
           status: 'BACKLOG',
           urgency: 'MEDIUM',
           energyRequired: energy,
@@ -161,6 +177,16 @@ export const useTaskStore = create<TaskStoreState>()(
         // Optimistic Prepend: hiển thị tức thì trên UI < 5s
         set((state) => ({
           tasks: [optimisticTask, ...state.tasks],
+          ...(wasAutoSplit
+            ? {
+                toast: {
+                  visible: true,
+                  message:
+                    '🌿 Orbit đã giúp bạn tóm gọn tiêu đề và lưu phần chi tiết còn lại vào mục ghi chú rồi nhé!',
+                  type: 'info' as const,
+                },
+              }
+            : {}),
         }));
 
         if (Platform.OS !== 'web') {
@@ -169,7 +195,7 @@ export const useTaskStore = create<TaskStoreState>()(
 
         // Gọi ngầm lên API backend
         try {
-          const serverTask = await TaskService.quickCapture(cleanTitle, energy);
+          const serverTask = await TaskService.quickCapture(effectiveTitle, energy, effectiveDesc);
           set((state) => ({
             tasks: state.tasks.map((t) =>
               t.id === tempId ? { ...serverTask, subtasks: t.subtasks } : t
@@ -177,6 +203,76 @@ export const useTaskStore = create<TaskStoreState>()(
           }));
         } catch (err: any) {
           console.warn('Quick capture background sync failed (lưu tạm offline):', err?.message);
+        }
+      },
+
+      /**
+       * updateTaskDetails(taskId, updates): Cập nhật thông tin chi tiết nhiệm vụ (tiêu đề, ghi chú, năng lượng, deadline...)
+       */
+      updateTaskDetails: async (taskId: string, updates: Partial<Task>) => {
+        // Cập nhật lạc quan trên UI
+        set((state) => ({
+          tasks: state.tasks.map((t) => (t.id === taskId ? { ...t, ...updates } : t)),
+        }));
+
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+
+        try {
+          const serverTask = await TaskService.updateTask(taskId, {
+            title: updates.title,
+            description: updates.description,
+            energyRequired: updates.energyRequired,
+            urgency: updates.urgency,
+            estimatedMinutes: updates.estimatedMinutes,
+            deadline: updates.deadline,
+          });
+
+          set((state) => ({
+            tasks: state.tasks.map((t) =>
+              t.id === taskId ? { ...serverTask, subtasks: t.subtasks } : t
+            ),
+            toast: {
+              visible: true,
+              message: '✨ Đã lưu cập nhật nhiệm vụ thành công!',
+              type: 'success',
+            },
+          }));
+        } catch (err: any) {
+          console.warn('updateTaskDetails offline sync (bảo lưu trên máy):', err?.message);
+          set({
+            toast: {
+              visible: true,
+              message: '🌿 Đã lưu tạm các thay đổi trên thiết bị.',
+              type: 'info',
+            },
+          });
+        }
+      },
+
+      /**
+       * deleteTask(taskId): Xóa vĩnh viễn nhiệm vụ khỏi bảng với xác nhận dịu êm
+       */
+      deleteTask: async (taskId: string) => {
+        // Xóa lạc quan trên giao diện
+        set((state) => ({
+          tasks: state.tasks.filter((t) => t.id !== taskId),
+          toast: {
+            visible: true,
+            message: '🌿 Nhiệm vụ đã được dọn dẹp gọn gàng.',
+            type: 'info',
+          },
+        }));
+
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+
+        try {
+          await TaskService.deleteTask(taskId);
+        } catch (err: any) {
+          console.warn('deleteTask offline sync (đã xóa trên bộ nhớ tạm thiết bị):', err?.message);
         }
       },
 

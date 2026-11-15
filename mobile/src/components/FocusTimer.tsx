@@ -11,6 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 
 const { width: screenWidth } = Dimensions.get('window');
 const dialSize = Math.min(Math.round(screenWidth * 0.52), 200);
@@ -52,6 +53,18 @@ export const FocusTimer: React.FC<FocusTimerProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMinutes]);
+
+  // Keep screen awake while focus timer is active (prevent ADHD flow state interruption)
+  useEffect(() => {
+    if (isActive) {
+      activateKeepAwakeAsync('focus-timer');
+    } else {
+      deactivateKeepAwake('focus-timer');
+    }
+    return () => {
+      deactivateKeepAwake('focus-timer');
+    };
+  }, [isActive]);
 
   // Watch for timer reaching zero and trigger completion side-effects
   useEffect(() => {

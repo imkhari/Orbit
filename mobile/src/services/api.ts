@@ -12,6 +12,7 @@ import {
   StreakResponse,
   FocusSessionResponse,
   LogFocusSessionRequest,
+  UpdateTaskRequest,
 } from '../types';
 
 /**
@@ -118,14 +119,39 @@ export const TaskService = {
   /**
    * Quick Capture: Ghi nhận nhanh việc dưới 5 giây (POST /api/v1/tasks)
    */
-  quickCapture: async (title: string, energyLevel: EnergyLevel = 'MEDIUM'): Promise<Task> => {
+  quickCapture: async (
+    title: string,
+    energyLevel: EnergyLevel = 'MEDIUM',
+    description?: string
+  ): Promise<Task> => {
     const response = await apiClient.post<ApiResponse<TaskResponse> | TaskResponse>('/tasks', {
       title,
       energyRequired: energyLevel,
+      description,
     });
 
     const item: TaskResponse = (response.data as ApiResponse<TaskResponse>)?.data ?? (response.data as TaskResponse);
     return mapTaskResponseToTask(item);
+  },
+
+  /**
+   * Cập nhật thông tin chi tiết nhiệm vụ (PUT /api/v1/tasks/{id})
+   */
+  updateTask: async (taskId: string, updates: UpdateTaskRequest): Promise<Task> => {
+    const response = await apiClient.put<ApiResponse<TaskResponse> | TaskResponse>(
+      `/tasks/${taskId}`,
+      updates
+    );
+
+    const item: TaskResponse = (response.data as ApiResponse<TaskResponse>)?.data ?? (response.data as TaskResponse);
+    return mapTaskResponseToTask(item);
+  },
+
+  /**
+   * Xóa vĩnh viễn nhiệm vụ (DELETE /api/v1/tasks/{id})
+   */
+  deleteTask: async (taskId: string): Promise<void> => {
+    await apiClient.delete(`/tasks/${taskId}`);
   },
 
   /**
