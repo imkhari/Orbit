@@ -1,6 +1,7 @@
 package com.orbit.controller;
 
 import com.orbit.dto.request.CreateTaskRequest;
+import com.orbit.dto.request.UpdateTaskRequest;
 import com.orbit.dto.request.UpdateTaskStatusRequest;
 import com.orbit.dto.response.ApiResponse;
 import com.orbit.dto.response.TaskResponse;
@@ -99,6 +100,19 @@ public class TaskController {
     }
 
     /**
+     * Cập nhật thông tin chi tiết nhiệm vụ (tiêu đề, ghi chú, năng lượng, deadline, thời lượng ước tính).
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<TaskResponse>> updateTask(
+        @PathVariable UUID id,
+        @Valid @RequestBody UpdateTaskRequest request
+    ) {
+        log.info("REST request to update task details for ID {}", id);
+        TaskResponse response = taskService.updateTask(id, request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Nhiệm vụ đã được cập nhật thành công!"));
+    }
+
+    /**
      * Cập nhật trạng thái cột Kanban của nhiệm vụ với kiểm tra giới hạn đơn nhiệm (WIP = 1).
      */
     @PatchMapping("/{id}/status")
@@ -112,15 +126,23 @@ public class TaskController {
     }
 
     /**
-     * Lấy danh sách nhiệm vụ (hỗ trợ lọc theo trạng thái cột Kanban và mức năng lượng nhận thức).
+     * Lấy danh sách nhiệm vụ (hỗ trợ lọc theo trạng thái cột Kanban, theo bảng, và theo mức năng lượng nhận thức).
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<TaskResponse>>> getTasks(
         @RequestParam(required = false) Task.TaskStatus status,
+        @RequestParam(required = false) UUID boardId,
         @RequestParam(required = false) Task.EnergyRequirement userEnergy,
         @RequestParam(required = false, defaultValue = "false") Boolean sortByPriority
     ) {
-        List<TaskResponse> tasks = taskService.getTasks(status, userEnergy, sortByPriority);
+        List<TaskResponse> tasks;
+        if (boardId != null) {
+            tasks = (status != null)
+                ? taskService.getTasksByBoardAndStatus(boardId, status)
+                : taskService.getTasksByBoard(boardId);
+        } else {
+            tasks = taskService.getTasks(status, userEnergy, sortByPriority);
+        }
         return ResponseEntity.ok(ApiResponse.ok(tasks, "Lấy danh sách nhiệm vụ thành công"));
     }
 

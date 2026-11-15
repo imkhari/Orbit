@@ -39,6 +39,12 @@ class TaskServiceTest {
     @Mock
     private com.orbit.service.StreakService streakService;
 
+    @Mock
+    private com.orbit.repository.BoardRepository boardRepository;
+
+    @Mock
+    private com.orbit.service.BoardService boardService;
+
     @Spy
     private com.orbit.service.engine.EnergyPrioritizationEngine energyPrioritizationEngine = new com.orbit.service.engine.EnergyPrioritizationEngine();
 

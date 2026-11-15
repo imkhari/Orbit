@@ -9,13 +9,30 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { BoardScreen } from './src/screens/BoardScreen';
 import { FocusScreen } from './src/screens/FocusScreen';
+import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { AuthScreen } from './src/screens/AuthScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { NotificationToast } from './src/components/NotificationToast';
 import { BoardSkeleton } from './src/components/BoardSkeleton';
 import { useTaskStore } from './src/store/useTaskStore';
-import { Task } from './src/types';
+import { useAuthStore } from './src/store/useAuthStore';
+import { useBoardStore } from './src/store/useBoardStore';
+import { useSettingsStore } from './src/store/useSettingsStore';
+import { Task, EnergyLevel } from './src/types';
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'BOARD' | 'FOCUS'>('BOARD');
+  const {
+    user,
+    hasCompletedOnboarding,
+    completeOnboarding,
+    setEnergyLevel,
+  } = useAuthStore();
+
+  const { pomodoroMinutes } = useSettingsStore();
+
+  const [currentScreen, setCurrentScreen] = useState<'ONBOARDING' | 'AUTH' | 'BOARD' | 'FOCUS' | 'SETTINGS'>(
+    hasCompletedOnboarding ? 'BOARD' : 'ONBOARDING'
+  );
 
   // Quản lý trạng thái toàn cục với Zustand + AsyncStorage Cache
   const {
@@ -24,6 +41,8 @@ export default function App() {
     isLoading,
     fetchTasks,
     addTask,
+    updateTaskDetails,
+    deleteTask,
     moveTask,
     toggleSubtask,
     applySubtasks,
@@ -33,10 +52,20 @@ export default function App() {
     hideToast,
   } = useTaskStore();
 
-  // Đồng bộ danh sách nhiệm vụ và streak từ backend ngay khi mở app
+  const { fetchBoards } = useBoardStore();
+
+  // Đồng bộ danh sách nhiệm vụ, bảng và streak từ backend ngay khi mở app
   useEffect(() => {
     fetchTasks();
-  }, [fetchTasks]);
+    fetchBoards();
+  }, [fetchTasks, fetchBoards]);
+
+  // Đồng bộ màn hình ban đầu theo trạng thái onboarding
+  useEffect(() => {
+    if (!hasCompletedOnboarding && currentScreen !== 'AUTH') {
+      setCurrentScreen('ONBOARDING');
+    }
+  }, [hasCompletedOnboarding]);
 
   // Nhiệm vụ đang được tập trung duy nhất ở cột DOING (WIP = 1)
   const doingTask = tasks.find((t) => t.status === 'DOING') || null;
@@ -56,18 +85,41 @@ export default function App() {
 
       {/* Screen Presentation */}
       <View style={styles.screenContainer}>
-        {isLoading && tasks.length === 0 ? (
+        {currentScreen === 'ONBOARDING' ? (
+          <OnboardingScreen
+            onComplete={(energy: EnergyLevel) => {
+              completeOnboarding(energy);
+              setEnergyLevel(energy);
+              setCurrentScreen('BOARD');
+            }}
+            onNavigateAuth={() => setCurrentScreen('AUTH')}
+          />
+        ) : currentScreen === 'AUTH' ? (
+          <AuthScreen
+            onBack={() => setCurrentScreen(hasCompletedOnboarding ? 'BOARD' : 'ONBOARDING')}
+            onSuccess={() => {
+              fetchTasks();
+              fetchBoards();
+              setCurrentScreen('BOARD');
+            }}
+          />
+        ) : isLoading && tasks.length === 0 ? (
           // Hiển thị Skeleton mờ dịu mắt (thay thế spinner xoay tròn gây lo âu cho người ADHD)
           <BoardSkeleton />
         ) : currentScreen === 'BOARD' ? (
           <BoardScreen
             tasks={tasks}
             streak={streak}
+            user={user}
             onMoveTask={moveTask}
             onQuickAdd={addTask}
+            onUpdateTask={updateTaskDetails}
+            onDeleteTask={deleteTask}
             onApplySubtasks={applySubtasks}
             onToggleSubtask={toggleSubtask}
             onNavigateFocus={() => setCurrentScreen('FOCUS')}
+            onNavigateAuth={() => setCurrentScreen('AUTH')}
+            onNavigateSettings={() => setCurrentScreen('SETTINGS')}
             onFocusTask={async (task: Task) => {
               if (task.status !== 'DOING') {
                 const moved = await moveTask(task.id, 'DOING');
@@ -80,6 +132,11 @@ export default function App() {
             rollbackTaskId={rollbackTaskId}
             isLoading={isLoading}
           />
+        ) : currentScreen === 'SETTINGS' ? (
+          <SettingsScreen
+            onBack={() => setCurrentScreen('BOARD')}
+            onNavigateAuth={() => setCurrentScreen('AUTH')}
+          />
         ) : (
           <FocusScreen
             doingTask={doingTask}
@@ -90,51 +147,84 @@ export default function App() {
         )}
       </View>
 
-      {/* Persistent Bottom Tab Navigation */}
-      <SafeAreaView style={styles.bottomNavSafeArea}>
-        <View style={styles.bottomNavBar}>
-          <TouchableOpacity
-            style={[
-              styles.navTabItem,
-              currentScreen === 'BOARD' && styles.navTabItemActive,
-            ]}
-            onPress={() => setCurrentScreen('BOARD')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.navTabIcon}>📋</Text>
-            <Text
+      {/* Persistent Bottom Tab Navigation (Visible on Kanban, Focus, and Settings screens) */}
+      {(currentScreen === 'BOARD' || currentScreen === 'FOCUS' || currentScreen === 'SETTINGS') && (
+        <SafeAreaView style={styles.bottomNavSafeArea}>
+          <View style={styles.bottomNavBar}>
+            <TouchableOpacity
               style={[
-                styles.navTabLabel,
-                currentScreen === 'BOARD' && styles.navTabLabelActive,
+                styles.navTabItem,
+                currentScreen === 'BOARD' && styles.navTabItemActive,
               ]}
+              onPress={() => setCurrentScreen('BOARD')}
+              activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: currentScreen === 'BOARD' }}
+              accessibilityLabel="Chuyển đến màn hình Bảng Kanban"
             >
-              Bảng Kanban
-            </Text>
-          </TouchableOpacity>
+              <Text style={styles.navTabIcon}>📋</Text>
+              <Text
+                style={[
+                  styles.navTabLabel,
+                  currentScreen === 'BOARD' && styles.navTabLabelActive,
+                ]}
+              >
+                Bảng Kanban
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.navTabItem,
-              currentScreen === 'FOCUS' && styles.navTabItemActive,
-            ]}
-            onPress={() => setCurrentScreen('FOCUS')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.focusIconWrapper}>
-              <Text style={styles.navTabIcon}>🎯</Text>
-              {doingTask && <View style={styles.activeDoingIndicator} />}
-            </View>
-            <Text
+            <TouchableOpacity
               style={[
-                styles.navTabLabel,
-                currentScreen === 'FOCUS' && styles.navTabLabelActive,
+                styles.navTabItem,
+                currentScreen === 'FOCUS' && styles.navTabItemActive,
               ]}
+              onPress={() => setCurrentScreen('FOCUS')}
+              activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: currentScreen === 'FOCUS' }}
+              accessibilityLabel={`Chuyển đến màn hình Tập trung ${pomodoroMinutes} phút`}
             >
-              Tập trung (25m)
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+              <View style={styles.focusIconWrapper}>
+                <Text style={styles.navTabIcon}>🎯</Text>
+                {doingTask && <View style={styles.activeDoingIndicator} />}
+              </View>
+              <Text
+                style={[
+                  styles.navTabLabel,
+                  currentScreen === 'FOCUS' && styles.navTabLabelActive,
+                ]}
+              >
+                Tập trung ({pomodoroMinutes}m)
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.navTabItem,
+                currentScreen === 'SETTINGS' && styles.navTabItemActive,
+              ]}
+              onPress={() => setCurrentScreen('SETTINGS')}
+              activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: currentScreen === 'SETTINGS' }}
+              accessibilityLabel="Chuyển đến màn hình Cài đặt"
+            >
+              <Text style={styles.navTabIcon}>⚙️</Text>
+              <Text
+                style={[
+                  styles.navTabLabel,
+                  currentScreen === 'SETTINGS' && styles.navTabLabelActive,
+                ]}
+              >
+                Cài đặt
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      )}
     </View>
   );
 }
@@ -148,31 +238,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bottomNavSafeArea: {
-    backgroundColor: '#0B1120',
+    backgroundColor: '#0F172A',
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
   },
   bottomNavBar: {
     flexDirection: 'row',
-    backgroundColor: '#0B1120',
-    borderTopWidth: 1,
-    borderTopColor: '#1E293B',
-    paddingVertical: 6,
+    height: 56,
+    backgroundColor: '#0F172A',
     paddingHorizontal: 16,
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-around',
   },
   navTabItem: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
     borderRadius: 12,
-    minHeight: 48,
+    marginHorizontal: 6,
+    gap: 8,
   },
   navTabItemActive: {
     backgroundColor: 'rgba(56, 189, 248, 0.12)',
   },
   navTabIcon: {
-    fontSize: 20,
-    marginBottom: 2,
+    fontSize: 18,
+  },
+  navTabLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#94A3B8', // Slate-400 for >=4.5:1 WCAG AA contrast on Slate-900
+  },
+  navTabLabelActive: {
+    color: '#38BDF8',
+    fontWeight: '700',
   },
   focusIconWrapper: {
     position: 'relative',
@@ -181,22 +283,11 @@ const styles = StyleSheet.create({
   },
   activeDoingIndicator: {
     position: 'absolute',
-    top: 0,
+    top: -2,
     right: -4,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#10B981',
-    borderWidth: 1.5,
-    borderColor: '#0B1120',
-  },
-  navTabLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-  navTabLabelActive: {
-    color: '#38BDF8',
-    fontWeight: '700',
+    backgroundColor: '#38BDF8',
   },
 });

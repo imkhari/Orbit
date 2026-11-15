@@ -1,6 +1,7 @@
 package com.orbit.service;
 
 import com.orbit.dto.request.CreateTaskRequest;
+import com.orbit.dto.request.UpdateTaskRequest;
 import com.orbit.dto.request.UpdateTaskStatusRequest;
 import com.orbit.dto.response.TaskResponse;
 import com.orbit.entity.Task;
@@ -21,6 +22,11 @@ public interface TaskService {
      * và hỗ trợ Edge Case 10: Chuyển ngược từ DONE về TODO bảo toàn Zero-Penalty XP.
      */
     TaskResponse updateTaskStatus(UUID taskId, UpdateTaskStatusRequest request);
+
+    /**
+     * Cập nhật thông tin chi tiết nhiệm vụ (tiêu đề, ghi chú, mức năng lượng, độ khẩn cấp, deadline, thời lượng).
+     */
+    TaskResponse updateTask(UUID taskId, UpdateTaskRequest request);
 
     /**
      * Lấy thông tin chi tiết một nhiệm vụ theo ID.
@@ -46,6 +52,16 @@ public interface TaskService {
      * @return Danh sách nhiệm vụ kèm priorityScore, isOverdue, isDimmed
      */
     List<TaskResponse> getTasks(Task.TaskStatus status, Task.EnergyRequirement userEnergy, Boolean sortByPriority);
+
+    /**
+     * Lấy danh sách nhiệm vụ thuộc về một bảng cụ thể.
+     */
+    List<TaskResponse> getTasksByBoard(UUID boardId);
+
+    /**
+     * Lấy danh sách nhiệm vụ thuộc về một bảng và lọc theo trạng thái cột.
+     */
+    List<TaskResponse> getTasksByBoardAndStatus(UUID boardId, Task.TaskStatus status);
 
     /**
      * Xóa nhiệm vụ theo ID.

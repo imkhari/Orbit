@@ -1,6 +1,7 @@
 package com.orbit.service.impl;
 
 import com.orbit.dto.request.CreateTaskRequest;
+import com.orbit.dto.request.UpdateTaskRequest;
 import com.orbit.dto.request.UpdateTaskStatusRequest;
 import com.orbit.dto.response.TaskResponse;
 import com.orbit.entity.Task;
@@ -31,6 +32,8 @@ public class TaskServiceImpl implements TaskService {
     private final UserRepository userRepository;
     private final StreakService streakService;
     private final EnergyPrioritizationEngine energyPrioritizationEngine;
+    private final com.orbit.repository.BoardRepository boardRepository;
+    private final com.orbit.service.BoardService boardService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -61,8 +64,23 @@ public class TaskServiceImpl implements TaskService {
                     rawTitle.length(), title.length());
         }
 
+        com.orbit.entity.Board board = null;
+        if (boardRepository != null) {
+            if (request.boardId() != null) {
+                board = boardRepository.findById(request.boardId()).orElse(null);
+            }
+            if (board == null && boardService != null) {
+                board = boardRepository.findFirstByUserIdAndIsArchivedFalseOrderByPositionAsc(user.getId())
+                    .orElseGet(() -> {
+                        var defaultBoards = boardService.getUserBoards(user.getId());
+                        return !defaultBoards.isEmpty() ? boardRepository.findById(defaultBoards.get(0).id()).orElse(null) : null;
+                    });
+            }
+        }
+
         Task task = Task.builder()
             .user(user)
+            .board(board)
             .title(title)
             .description(description)
             .energyRequired(request.energyRequiredOrDefault())
@@ -120,6 +138,47 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TaskResponse updateTask(UUID taskId, UpdateTaskRequest request) {
+        log.info("Updating task details for ID: {}", taskId);
+
+        Task task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new ResourceNotFoundException("Nhiệm vụ", taskId));
+
+        if (request.title() != null && !request.title().isBlank()) {
+            String rawTitle = request.title().trim();
+            if (rawTitle.length() > 100 && (request.description() == null || request.description().isBlank())) {
+                task.setTitle(rawTitle.substring(0, 100).trim());
+                task.setDescription(rawTitle.substring(100).trim());
+            } else {
+                task.setTitle(rawTitle);
+            }
+        }
+        if (request.description() != null) {
+            task.setDescription(request.description().trim());
+        }
+        if (request.energyRequired() != null) {
+            task.setEnergyRequired(request.energyRequired());
+        }
+        if (request.urgency() != null) {
+            task.setUrgency(request.urgency());
+        }
+        if (request.estimatedMinutes() != null) {
+            task.setEstimatedMinutes(request.estimatedMinutes());
+        }
+        if (request.deadline() != null) {
+            task.setDeadline(request.deadline());
+        }
+        if (request.boardId() != null) {
+            boardRepository.findById(request.boardId()).ifPresent(task::setBoard);
+        }
+
+        Task saved = taskRepository.save(task);
+        log.info("Task ID: {} details updated successfully", taskId);
+        return TaskResponse.fromEntity(saved);
+    }
+
+    @Override
     public TaskResponse getTaskById(UUID taskId) {
         return taskRepository.findById(taskId)
             .map(task -> {
@@ -153,6 +212,20 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    public List<TaskResponse> getTasksByBoard(UUID boardId) {
+        return taskRepository.findByBoardIdOrderByPositionAsc(boardId).stream()
+            .map(TaskResponse::fromEntity)
+            .toList();
+    }
+
+    @Override
+    public List<TaskResponse> getTasksByBoardAndStatus(UUID boardId, Task.TaskStatus status) {
+        return taskRepository.findByBoardIdAndStatusOrderByPositionAsc(boardId, status).stream()
+            .map(TaskResponse::fromEntity)
+            .toList();
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteTask(UUID taskId) {
         if (!taskRepository.existsById(taskId)) {
@@ -165,6 +238,12 @@ public class TaskServiceImpl implements TaskService {
     private User resolveUser(UUID userId) {
         if (userId != null) {
             return userRepository.findById(userId).orElse(null);
+        }
+
+        org.springframework.security.core.Authentication auth =
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof User user) {
+            return user;
         }
 
         // Tạo hoặc lấy Demo User mặc định để bảo toàn khóa ngoại user_id

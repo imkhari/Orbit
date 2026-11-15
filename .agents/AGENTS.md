@@ -86,10 +86,14 @@ Hệ thống thư mục `.agents/` được phân bổ minh bạch cho 2 thành 
     │   └── SKILL.md
     ├── open-code-review/                    # [Chung] Alibaba Open Code Review CLI (ocr review / delegate)
     │   └── SKILL.md
-    └── code-review-skill/                   # [Chung] Bộ hướng dẫn & checklists review code đa ngôn ngữ
-        ├── SKILL.md
-        ├── reference/                       # Tài liệu chuyên sâu (Java, TS, React, Security,...)
-        └── scripts/                         # Scripts hỗ trợ phân tích PR
+    ├── code-review-skill/                   # [Chung] Bộ hướng dẫn & checklists review code đa ngôn ngữ
+    │   ├── SKILL.md
+    │   ├── reference/                       # Tài liệu chuyên sâu (Java, TS, React, Security,...)
+    │   └── scripts/                         # Scripts hỗ trợ phân tích PR
+    └── ui-ux-pro-max/                       # [Người 2] UI/UX Design Intelligence (80 styles, 192 palettes, 22 stacks)
+        ├── SKILL.md                         # Hướng dẫn query CLI, design-system & UX checklist
+        ├── data/                            # 192 reasoning rules, palettes, typography, icons, stacks
+        └── scripts/search.py                # Công cụ tìm kiếm BM25 đa miền & generate design system
 ```
 
 ### Bảng Phân Quyền Chi Tiết
@@ -97,7 +101,7 @@ Hệ thống thư mục `.agents/` được phân bổ minh bạch cho 2 thành 
 | Thành Viên | Vai Trò Chính | Trách Nhiệm Kỹ Thuật | Danh Mục Customization Quản Lý |
 | :--- | :--- | :--- | :--- |
 | **Người 1** *(Hiện tại)* | **Lead Backend & AI Engineer** | - Kiến trúc Clean Architecture Spring Boot 3<br>- REST API specs, validation, exception handling<br>- PostgreSQL ACID transactions & Spring AI integration<br>- Fallback heuristic khi AI timeout (Edge Case 01 & 12) | - `.agents/rules/backend_clean_architecture.md`<br>- `.agents/skills/ai-task-decomposer/` |
-| **Người 2** *(Teammate)* | **Lead Mobile & ADHD UX** | - Thiết kế giao diện React Native / Expo<br>- Áp dụng Design Tokens & WCAG 2.1 Level AA<br>- Cấu hình Haptic Feedback Engine & Spring physics<br>- Đảm bảo giới hạn WIP = 1 và 4 UI Edge States | - `.agents/rules/adhd_cognitive_ux_rules.md`<br>- `.agents/skills/adhd-ui-evaluator/` |
+| **Người 2** *(Teammate)* | **Lead Mobile & ADHD UX** | - Thiết kế giao diện React Native / Expo<br>- Áp dụng Design Tokens & WCAG 2.1 Level AA<br>- Cấu hình Haptic Feedback Engine & Spring physics<br>- Đảm bảo giới hạn WIP = 1 và 4 UI Edge States | - `.agents/rules/adhd_cognitive_ux_rules.md`<br>- `.agents/skills/adhd-ui-evaluator/`<br>- `.agents/skills/ui-ux-pro-max/` |
 
 ---
 

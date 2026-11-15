@@ -6,6 +6,10 @@ server:
 spring:
   application:
     name: orbit-backend
+  config:
+    import:
+      - optional:classpath:application-secret.yml
+      - optional:file:application-secret.yml
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/orbit_db}
@@ -20,7 +24,6 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 orbit:
   jwt:

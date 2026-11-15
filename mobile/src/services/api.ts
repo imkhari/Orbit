@@ -12,6 +12,14 @@ import {
   StreakResponse,
   FocusSessionResponse,
   LogFocusSessionRequest,
+  UpdateTaskRequest,
+  AuthResponse,
+  RegisterRequest,
+  LoginRequest,
+  UserProfile,
+  BoardResponse,
+  CreateBoardRequest,
+  UpdateBoardRequest,
 } from '../types';
 
 /**
@@ -40,35 +48,70 @@ export const apiClient = axios.create({
   },
 });
 
+// Request interceptor: tự động gắn Timezone header và JWT Bearer Token
+apiClient.interceptors.request.use((config) => {
+  try {
+    // 1. Gắn Timezone client để bảo vệ chuỗi ngày Streak theo giờ địa phương
+    const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Ho_Chi_Minh';
+    config.headers['X-Timezone-Offset'] = clientTz;
+
+    // 2. Gắn JWT Bearer token nếu đã đăng nhập
+    const { useAuthStore } = require('../store/useAuthStore');
+    const token = useAuthStore.getState()?.token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {
+    // ignore
+  }
+  return config;
+});
+
 /**
  * Hàm trợ giúp chuyển đổi TaskResponse từ Backend Spring Boot sang Task domain model trên Mobile.
  */
 export const mapTaskResponseToTask = (
   res: TaskResponse,
   existingSubtasks: Subtask[] = []
-): Task => ({
-  id: res.id,
-  boardId: 'board-main',
-  title: res.title,
-  description: res.description,
-  status: res.status,
-  urgency: res.urgency,
-  energyRequired: res.energyRequired,
-  deadline: res.deadline,
-  estimatedMinutes: res.estimatedMinutes,
-  position: res.position ?? 0,
-  subtasks: existingSubtasks,
-  createdAt: res.createdAt,
-  completedAt: res.completedAt,
-});
+): Task => {
+  const mappedSubtasks: Subtask[] = (res.subtasks ?? []).map((s) => ({
+    id: s.id,
+    taskId: s.taskId || res.id,
+    title: s.title,
+    estimatedMinutes: s.estimatedMinutes ?? 15,
+    energyLevel: s.energyLevel ?? 'LOW',
+    stepOrder: s.stepOrder ?? 1,
+    isCompleted: Boolean(s.isCompleted),
+    completedAt: s.completedAt,
+  }));
+
+  return {
+    id: res.id,
+    boardId: res.boardId || 'board-main',
+    title: res.title,
+    description: res.description,
+    status: res.status,
+    urgency: res.urgency,
+    energyRequired: res.energyRequired,
+    deadline: res.deadline,
+    estimatedMinutes: res.estimatedMinutes,
+    position: res.position ?? 0,
+    subtasks: existingSubtasks.length > 0 ? existingSubtasks : mappedSubtasks,
+    createdAt: res.createdAt,
+    completedAt: res.completedAt,
+  };
+};
 
 export const TaskService = {
   /**
-   * Lấy danh sách nhiệm vụ từ backend (GET /api/v1/tasks)
+   * Lấy danh sách nhiệm vụ từ backend (GET /api/v1/tasks?boardId=...)
    */
-  getTasks: async (status?: TaskStatus): Promise<Task[]> => {
+  getTasks: async (status?: TaskStatus, boardId?: string): Promise<Task[]> => {
     const response = await apiClient.get<ApiResponse<TaskResponse[]> | TaskResponse[]>('/tasks', {
-      params: status ? { status } : undefined,
+      params: {
+        ...(status ? { status } : {}),
+        ...(boardId ? { boardId } : {}),
+      },
     });
 
     const rawList: TaskResponse[] = Array.isArray(response.data)
@@ -105,14 +148,41 @@ export const TaskService = {
   /**
    * Quick Capture: Ghi nhận nhanh việc dưới 5 giây (POST /api/v1/tasks)
    */
-  quickCapture: async (title: string, energyLevel: EnergyLevel = 'MEDIUM'): Promise<Task> => {
+  quickCapture: async (
+    title: string,
+    energyLevel: EnergyLevel = 'MEDIUM',
+    description?: string,
+    boardId?: string
+  ): Promise<Task> => {
     const response = await apiClient.post<ApiResponse<TaskResponse> | TaskResponse>('/tasks', {
       title,
       energyRequired: energyLevel,
+      description,
+      boardId,
     });
 
     const item: TaskResponse = (response.data as ApiResponse<TaskResponse>)?.data ?? (response.data as TaskResponse);
     return mapTaskResponseToTask(item);
+  },
+
+  /**
+   * Cập nhật thông tin chi tiết nhiệm vụ (PUT /api/v1/tasks/{id})
+   */
+  updateTask: async (taskId: string, updates: UpdateTaskRequest): Promise<Task> => {
+    const response = await apiClient.put<ApiResponse<TaskResponse> | TaskResponse>(
+      `/tasks/${taskId}`,
+      updates
+    );
+
+    const item: TaskResponse = (response.data as ApiResponse<TaskResponse>)?.data ?? (response.data as TaskResponse);
+    return mapTaskResponseToTask(item);
+  },
+
+  /**
+   * Xóa vĩnh viễn nhiệm vụ (DELETE /api/v1/tasks/{id})
+   */
+  deleteTask: async (taskId: string): Promise<void> => {
+    await apiClient.delete(`/tasks/${taskId}`);
   },
 
   /**
@@ -228,3 +298,104 @@ export const FocusSessionService = {
     return (response.data as ApiResponse<FocusSessionResponse>)?.data ?? (response.data as FocusSessionResponse);
   },
 };
+
+export const AuthService = {
+  /**
+   * Đăng ký tài khoản người dùng mới (POST /api/v1/auth/register)
+   */
+  register: async (req: RegisterRequest): Promise<AuthResponse> => {
+    const response = await apiClient.post<ApiResponse<AuthResponse> | AuthResponse>(
+      '/auth/register',
+      req
+    );
+    return (response.data as ApiResponse<AuthResponse>)?.data ?? (response.data as AuthResponse);
+  },
+
+  /**
+   * Đăng nhập người dùng (POST /api/v1/auth/login)
+   */
+  login: async (req: LoginRequest): Promise<AuthResponse> => {
+    const response = await apiClient.post<ApiResponse<AuthResponse> | AuthResponse>(
+      '/auth/login',
+      req
+    );
+    return (response.data as ApiResponse<AuthResponse>)?.data ?? (response.data as AuthResponse);
+  },
+
+  /**
+   * Làm mới Access Token (POST /api/v1/auth/refresh)
+   */
+  refreshToken: async (refreshToken: string): Promise<AuthResponse> => {
+    const response = await apiClient.post<ApiResponse<AuthResponse> | AuthResponse>(
+      '/auth/refresh',
+      { refreshToken }
+    );
+    return (response.data as ApiResponse<AuthResponse>)?.data ?? (response.data as AuthResponse);
+  },
+
+  /**
+   * Lấy thông tin người dùng hiện tại (GET /api/v1/auth/me)
+   */
+  getCurrentUser: async (): Promise<UserProfile> => {
+    const response = await apiClient.get<ApiResponse<UserProfile> | UserProfile>(
+      '/auth/me'
+    );
+    return (response.data as ApiResponse<UserProfile>)?.data ?? (response.data as UserProfile);
+  },
+
+  /**
+   * Cập nhật mức năng lượng hiện tại của người dùng (PATCH /api/v1/auth/me/energy)
+   */
+  updateEnergyLevel: async (energyLevel: EnergyLevel): Promise<UserProfile> => {
+    const response = await apiClient.patch<ApiResponse<UserProfile> | UserProfile>(
+      '/auth/me/energy',
+      { energyLevel }
+    );
+    return (response.data as ApiResponse<UserProfile>)?.data ?? (response.data as UserProfile);
+  },
+};
+
+export const BoardService = {
+  /**
+   * Lấy danh sách các bảng hoạt động của người dùng (GET /api/v1/boards)
+   */
+  getBoards: async (): Promise<BoardResponse[]> => {
+    const response = await apiClient.get<ApiResponse<BoardResponse[]> | BoardResponse[]>('/boards');
+    const rawList: BoardResponse[] = Array.isArray(response.data)
+      ? response.data
+      : (response.data as ApiResponse<BoardResponse[]>)?.data ?? [];
+    return rawList;
+  },
+
+  /**
+   * Tạo bảng mới (POST /api/v1/boards) - giới hạn 5 bảng (Edge Case 07)
+   */
+  createBoard: async (data: CreateBoardRequest): Promise<BoardResponse> => {
+    const response = await apiClient.post<ApiResponse<BoardResponse> | BoardResponse>('/boards', data);
+    return (response.data as ApiResponse<BoardResponse>)?.data ?? (response.data as BoardResponse);
+  },
+
+  /**
+   * Cập nhật thông tin bảng (PUT /api/v1/boards/{id})
+   */
+  updateBoard: async (boardId: string, data: UpdateBoardRequest): Promise<BoardResponse> => {
+    const response = await apiClient.put<ApiResponse<BoardResponse> | BoardResponse>(`/boards/${boardId}`, data);
+    return (response.data as ApiResponse<BoardResponse>)?.data ?? (response.data as BoardResponse);
+  },
+
+  /**
+   * Lưu trữ bảng để giải phóng không gian (PATCH /api/v1/boards/{id}/archive)
+   */
+  archiveBoard: async (boardId: string): Promise<BoardResponse> => {
+    const response = await apiClient.patch<ApiResponse<BoardResponse> | BoardResponse>(`/boards/${boardId}/archive`);
+    return (response.data as ApiResponse<BoardResponse>)?.data ?? (response.data as BoardResponse);
+  },
+
+  /**
+   * Xóa vĩnh viễn bảng (DELETE /api/v1/boards/{id})
+   */
+  deleteBoard: async (boardId: string): Promise<void> => {
+    await apiClient.delete(`/boards/${boardId}`);
+  },
+};
+

@@ -4,7 +4,7 @@ import {
   Text,
   View,
   SafeAreaView,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   Modal,
   Platform,
@@ -15,20 +15,28 @@ import { StreakState } from '../store/useTaskStore';
 import { TaskCard } from '../components/TaskCard';
 import { QuickCaptureBar } from '../components/QuickCaptureBar';
 import { AIDecomposeModal } from '../components/AIDecomposeModal';
+import { TaskDetailModal } from '../components/TaskDetailModal';
 import {
   EnergyFilterWidget,
   EnergyFilterType,
 } from '../components/EnergyFilterWidget';
+import { BoardSwitcherModal } from '../components/BoardSwitcherModal';
+import { useBoardStore } from '../store/useBoardStore';
 
 export interface BoardScreenProps {
   tasks: Task[];
   streak?: StreakState;
+  user?: import('../types').UserProfile | null;
   onMoveTask: (taskId: string, targetStatus: TaskStatus) => void | Promise<boolean> | boolean;
-  onQuickAdd: (title: string, energy: EnergyLevel) => void;
+  onQuickAdd: (title: string, energy: EnergyLevel, description?: string, boardId?: string) => void;
+  onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
+  onDeleteTask?: (taskId: string) => void;
   onApplySubtasks: (taskId: string, newSubtasks: Subtask[]) => void;
   onToggleSubtask?: (taskId: string, subtaskId: string) => void;
   onNavigateFocus?: () => void;
   onFocusTask?: (task: Task) => void;
+  onNavigateAuth?: () => void;
+  onNavigateSettings?: () => void;
   rollbackTaskId?: string | null;
   isLoading?: boolean;
 }
@@ -45,19 +53,49 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
     isFrozenToday: false,
     gentleMessage: 'Mỗi bước nhỏ đều tạo nên bước nhảy lớn 🌿',
   },
+  user,
   onMoveTask,
   onQuickAdd,
+  onUpdateTask,
+  onDeleteTask,
   onApplySubtasks,
   onToggleSubtask,
   onNavigateFocus,
   onFocusTask,
+  onNavigateAuth,
+  onNavigateSettings,
   rollbackTaskId: propRollbackTaskId,
   isLoading,
 }) => {
   const [activeColumn, setActiveColumn] = useState<TaskStatus>('TODO');
   const [decomposingTask, setDecomposingTask] = useState<Task | null>(null);
+  const [selectedDetailTaskId, setSelectedDetailTaskId] = useState<string | null>(null);
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyFilterType>('ALL');
   const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
+  const [showBoardSwitcher, setShowBoardSwitcher] = useState<boolean>(false);
+
+  // Zustand Board Store
+  const { boards, activeBoardId } = useBoardStore();
+
+  const activeBoard = useMemo(() => {
+    return boards.find((b) => b.id === activeBoardId) || boards[0] || null;
+  }, [boards, activeBoardId]);
+
+  // Lọc tác vụ theo board đang được chọn
+  const boardFilteredTasks = useMemo(() => {
+    if (!activeBoardId) return tasks;
+    const isFirstActiveBoard = boards.filter((b) => !b.isArchived)[0]?.id === activeBoardId;
+    return tasks.filter((t) => {
+      if (t.boardId === activeBoardId) return true;
+      if (isFirstActiveBoard && (!t.boardId || t.boardId === 'board-main')) return true;
+      return false;
+    });
+  }, [tasks, activeBoardId, boards]);
+
+  // Sync selected task with live tasks in store
+  const selectedDetailTask = selectedDetailTaskId
+    ? tasks.find((t) => t.id === selectedDetailTaskId) || null
+    : null;
 
   // Task movement with WIP=1 Spring Physics & Haptics delegation to useTaskStore
   const handleTaskMovement = (taskId: string, targetStatus: TaskStatus) => {
@@ -70,8 +108,8 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
   };
 
   // Quick Capture wraps parent callback and switches to BACKLOG column
-  const handleQuickAdd = (title: string, energy: EnergyLevel) => {
-    onQuickAdd(title, energy);
+  const handleQuickAdd = (title: string, energy: EnergyLevel, description?: string) => {
+    onQuickAdd(title, energy, description, activeBoardId || undefined);
     setActiveColumn('BACKLOG');
   };
 
@@ -90,33 +128,33 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
     setShowStreakModal(true);
   };
 
-  // Column definitions
+  // Column definitions - Concise & responsive on mobile screens
   const columns: Array<{ status: TaskStatus; label: string; count: number }> = [
     {
       status: 'BACKLOG',
       label: 'Backlog',
-      count: tasks.filter((t) => t.status === 'BACKLOG').length,
+      count: boardFilteredTasks.filter((t) => t.status === 'BACKLOG').length,
     },
     {
       status: 'TODO',
       label: 'Cần làm',
-      count: tasks.filter((t) => t.status === 'TODO').length,
+      count: boardFilteredTasks.filter((t) => t.status === 'TODO').length,
     },
     {
       status: 'DOING',
-      label: 'Đang làm (1/1)',
-      count: tasks.filter((t) => t.status === 'DOING').length,
+      label: 'Đang làm',
+      count: boardFilteredTasks.filter((t) => t.status === 'DOING').length,
     },
     {
       status: 'DONE',
       label: 'Đã xong',
-      count: tasks.filter((t) => t.status === 'DONE').length,
+      count: boardFilteredTasks.filter((t) => t.status === 'DONE').length,
     },
   ];
 
   // Dynamic Re-ranking & Dimming based on Energy Filter
   const displayedTasks = useMemo(() => {
-    const columnTasks = tasks.filter((t) => t.status === activeColumn);
+    const columnTasks = boardFilteredTasks.filter((t) => t.status === activeColumn);
 
     if (selectedEnergy === 'ALL') {
       return columnTasks.map((t) => ({ task: t, isDimmed: false }));
@@ -129,24 +167,34 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
       ...matched.map((t) => ({ task: t, isDimmed: false })),
       ...unmatched.map((t) => ({ task: t, isDimmed: true })),
     ];
-  }, [tasks, activeColumn, selectedEnergy]);
+  }, [boardFilteredTasks, activeColumn, selectedEnergy]);
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* App Header with Streak Shield Widget */}
+      {/* Minimalist App Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.titleRow}>
-            <Text style={styles.headerTitle}>🌌 Orbit</Text>
-            {isLoading && (
-              <View style={styles.syncBadge}>
-                <Text style={styles.syncBadgeText}>Đang đồng bộ...</Text>
-              </View>
-            )}
-          </View>
-          <Text style={styles.headerSubtitle}>
-            Điều phối công việc cho tâm trí ADHD
-          </Text>
+          <Text style={styles.headerTitle}>🌌 Orbit</Text>
+          <TouchableOpacity
+            style={styles.boardChip}
+            onPress={() => setShowBoardSwitcher(true)}
+            activeOpacity={0.7}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Chuyển bảng công việc. Bảng hiện tại: ${activeBoard?.title || 'Học Tập'}`}
+          >
+            <Text style={styles.boardChipIcon}>{activeBoard?.icon || '📋'}</Text>
+            <Text style={styles.boardChipText} numberOfLines={1}>
+              {activeBoard?.title || 'Học Tập'}
+            </Text>
+            <Text style={styles.boardChipArrow}>▾</Text>
+          </TouchableOpacity>
+
+          {isLoading && (
+            <View style={styles.syncBadge}>
+              <Text style={styles.syncBadgeText}>Đồng bộ...</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.headerRight}>
@@ -156,14 +204,14 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
             onPress={handleOpenStreakModal}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={`Chuỗi ${streak.currentStreak} ngày, ${streak.freezeCredits} Khiên Đóng Băng bảo vệ`}
+            accessibilityHint="Chạm để xem thông tin chi tiết về Khiên Đóng Băng và XP"
           >
-            <View style={styles.streakBadgeItem}>
-              <Text style={styles.streakFireText}>🔥 {streak.currentStreak} ngày</Text>
-            </View>
-            <View style={styles.streakDivider} />
-            <View style={styles.freezeBadgeItem}>
-              <Text style={styles.freezeShieldText}>🛡️ {streak.freezeCredits} Khiên</Text>
-            </View>
+            <Text style={styles.streakCompactText}>
+              🔥 {streak.currentStreak} <Text style={styles.streakDividerDot}>•</Text> 🛡️ {streak.freezeCredits}
+            </Text>
           </TouchableOpacity>
 
           {onNavigateFocus && (
@@ -171,10 +219,32 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
               style={styles.focusHeaderBtn}
               onPress={onNavigateFocus}
               activeOpacity={0.8}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Mở màn hình tập trung đơn nhiệm Focus"
+              accessibilityHint="Chạm để chuyển sang chế độ tập trung với Pomodoro timer"
             >
               <Text style={styles.focusHeaderBtnText}>🎯 Focus</Text>
             </TouchableOpacity>
           )}
+
+          <TouchableOpacity
+            style={styles.profileHeaderBtn}
+            onPress={() => {
+              if (onNavigateSettings) {
+                onNavigateSettings();
+              } else if (onNavigateAuth) {
+                onNavigateAuth();
+              }
+            }}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel={user ? `Cài đặt hồ sơ ${user.displayName}` : 'Đăng nhập tài khoản'}
+          >
+            <Text style={styles.profileIconText}>{user ? '⚙️' : '🔑'}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -252,6 +322,10 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
                 setActiveColumn(col.status);
               }}
               activeOpacity={0.7}
+              accessible={true}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={`Cột ${col.label}, ${col.count} nhiệm vụ`}
             >
               <Text
                 style={[
@@ -281,26 +355,35 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
         })}
       </View>
 
-      {/* Task Cards List with Energy-based Rerank, Dimming and Subtask check-off */}
-      <ScrollView
+      {/* Task Cards List with Virtualization, Energy-based Rerank, Dimming and Subtask check-off */}
+      <FlatList
+        data={displayedTasks}
+        keyExtractor={(item) => item.task.id}
         style={styles.taskListContainer}
         contentContainerStyle={styles.taskListContent}
-      >
-        {selectedEnergy !== 'ALL' && (
-          <View style={styles.filterHintBanner}>
-            <Text style={styles.filterHintText}>
-              💡 Đang ưu tiên việc{' '}
-              {selectedEnergy === 'LOW'
-                ? '☕ Thấp'
-                : selectedEnergy === 'MEDIUM'
-                ? '⚡ Vừa'
-                : '🔥 Cao'}
-              . Các việc nặng hơn được xếp dưới và làm mờ để giảm tải nhận thức.
-            </Text>
-          </View>
-        )}
-
-        {displayedTasks.length === 0 ? (
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS !== 'web'}
+        ListHeaderComponent={
+          selectedEnergy !== 'ALL' ? (
+            <View style={styles.filterHintBanner}>
+              <Text style={styles.filterHintText}>
+                💡 Lọc: {selectedEnergy === 'LOW' ? '☕ Thấp' : selectedEnergy === 'MEDIUM' ? '⚡ Vừa' : '🔥 Cao'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setSelectedEnergy('ALL')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="Xóa bộ lọc năng lượng"
+              >
+                <Text style={styles.filterClearText}>✕ Đặt lại</Text>
+              </TouchableOpacity>
+            </View>
+          ) : undefined
+        }
+        ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>
               {activeColumn === 'DOING'
@@ -324,21 +407,20 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
                 : 'Nếu có ý nghĩ nào nảy ra, hãy thêm nhanh ở thanh dưới đáy. Orbit sẽ giữ hộ bạn.'}
             </Text>
           </View>
-        ) : (
-          displayedTasks.map(({ task, isDimmed }) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onMoveTask={handleTaskMovement}
-              onOpenAIDecompose={(t) => setDecomposingTask(t)}
-              onFocusTask={handleFocusTaskAction}
-              onToggleSubtask={onToggleSubtask}
-              isDimmed={isDimmed}
-              triggerRollback={propRollbackTaskId === task.id}
-            />
-          ))
+        }
+        renderItem={({ item }) => (
+          <TaskCard
+            task={item.task}
+            onMoveTask={handleTaskMovement}
+            onOpenAIDecompose={(t) => setDecomposingTask(t)}
+            onFocusTask={handleFocusTaskAction}
+            onToggleSubtask={onToggleSubtask}
+            onOpenDetail={(t) => setSelectedDetailTaskId(t.id)}
+            isDimmed={item.isDimmed}
+            triggerRollback={propRollbackTaskId === item.task.id}
+          />
         )}
-      </ScrollView>
+      />
 
       {/* Bottom Quick Capture Bar */}
       <QuickCaptureBar onAddTask={handleQuickAdd} />
@@ -349,6 +431,29 @@ export const BoardScreen: React.FC<BoardScreenProps> = ({
         task={decomposingTask}
         onClose={() => setDecomposingTask(null)}
         onApplySubtasks={onApplySubtasks}
+      />
+
+      {/* Task Detail & Subtasks Checklist Modal (Screen 6) */}
+      <TaskDetailModal
+        visible={selectedDetailTask !== null}
+        task={selectedDetailTask}
+        onClose={() => setSelectedDetailTaskId(null)}
+        onUpdateTask={(taskId, updates) => {
+          onUpdateTask?.(taskId, updates);
+        }}
+        onDeleteTask={(taskId) => {
+          onDeleteTask?.(taskId);
+        }}
+        onToggleSubtask={onToggleSubtask || (() => {})}
+        onApplySubtasks={onApplySubtasks}
+        onOpenAIDecompose={(t) => setDecomposingTask(t)}
+        onStartFocus={(t) => handleFocusTaskAction(t)}
+      />
+
+      {/* Modal Chuyển Đổi Bảng Công Việc (Screen 3) */}
+      <BoardSwitcherModal
+        visible={showBoardSwitcher}
+        onClose={() => setShowBoardSwitcher(false)}
       />
     </SafeAreaView>
   );
@@ -361,33 +466,56 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#1E293B',
-    gap: 8,
   },
   headerLeft: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: '#F8FAFC',
     letterSpacing: -0.5,
+  },
+  boardChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#334155',
+    maxWidth: 150,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
+  },
+  boardChipIcon: {
+    fontSize: 13,
+    marginRight: 4,
+  },
+  boardChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#38BDF8',
+    flexShrink: 1,
+  },
+  boardChipArrow: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginLeft: 4,
   },
   syncBadge: {
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
@@ -402,52 +530,33 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '600',
   },
-  headerSubtitle: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 1,
-  },
   streakHeaderWidget: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#1E293B',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#334155',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    minHeight: 44, // WCAG 2.1 AA Touch Target >= 44x44 pt
-    gap: 6,
-  },
-  streakBadgeItem: {
+    paddingVertical: 7,
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  streakFireText: {
-    color: '#FBBF24', // Sand Amber
+  streakCompactText: {
     fontSize: 12,
     fontWeight: '700',
+    color: '#FBBF24',
   },
-  streakDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: '#334155',
-  },
-  freezeBadgeItem: {
-    justifyContent: 'center',
-  },
-  freezeShieldText: {
-    color: '#818CF8', // Soft Iris / Freeze Shield Token
-    fontSize: 12,
-    fontWeight: '700',
+  streakDividerDot: {
+    color: '#64748B',
   },
   focusHeaderBtn: {
     backgroundColor: '#0284C7',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#38BDF8',
-    minHeight: 44, // WCAG Touch-target >= 44x44 pt
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -455,6 +564,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  profileHeaderBtn: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    minHeight: 44, // WCAG Touch Target >= 44x44 pt
+    minWidth: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileIconText: {
+    fontSize: 16,
   },
   modalBackdrop: {
     flex: 1,
@@ -623,17 +746,24 @@ const styles = StyleSheet.create({
   filterHintBanner: {
     backgroundColor: 'rgba(56, 189, 248, 0.08)',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.2)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   filterHintText: {
     color: '#38BDF8',
     fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  filterClearText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
   },
   taskListContainer: {
     flex: 1,
@@ -660,7 +790,7 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: '#94A3B8',
     textAlign: 'center',
     lineHeight: 18,
   },

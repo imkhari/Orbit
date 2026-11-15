@@ -3,6 +3,8 @@ package com.orbit.dto.response;
 import com.orbit.entity.Task;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -12,6 +14,7 @@ import java.util.UUID;
 public record TaskResponse(
     UUID id,
     UUID userId,
+    UUID boardId,
     String title,
     String description,
     Task.TaskStatus status,
@@ -26,7 +29,8 @@ public record TaskResponse(
     Instant completedAt,
     Double priorityScore,
     Boolean isOverdue,
-    Boolean isDimmed
+    Boolean isDimmed,
+    List<SubtaskResponse> subtasks
 ) {
     public static TaskResponse fromEntity(Task task) {
         boolean overdue = task.getDeadline() != null
@@ -41,9 +45,14 @@ public record TaskResponse(
         int completedCount = task.getSubtasks() != null ?
             (int) task.getSubtasks().stream().filter(s -> Boolean.TRUE.equals(s.getIsCompleted())).count() : 0;
 
+        List<SubtaskResponse> subtaskResponses = task.getSubtasks() != null
+            ? task.getSubtasks().stream().map(SubtaskResponse::fromEntity).toList()
+            : Collections.emptyList();
+
         return new TaskResponse(
             task.getId(),
             task.getUser() != null ? task.getUser().getId() : null,
+            task.getBoard() != null ? task.getBoard().getId() : null,
             task.getTitle(),
             task.getDescription(),
             task.getStatus(),
@@ -58,7 +67,8 @@ public record TaskResponse(
             task.getCompletedAt(),
             priorityScore,
             Boolean.TRUE.equals(isOverdue),
-            Boolean.TRUE.equals(isDimmed)
+            Boolean.TRUE.equals(isDimmed),
+            subtaskResponses
         );
     }
 }
