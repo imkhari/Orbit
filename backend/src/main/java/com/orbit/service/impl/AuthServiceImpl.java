@@ -137,4 +137,23 @@ public class AuthServiceImpl implements AuthService {
         log.info("Updated energy level to {} for user ID {}", energyLevel, userId);
         return UserResponse.fromEntity(updated);
     }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UserResponse updateProfile(UUID userId, com.orbit.dto.request.UpdateProfileRequest request) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("Người dùng", userId));
+
+        if (request.displayName() != null && !request.displayName().isBlank()) {
+            user.setDisplayName(request.displayName().trim());
+        }
+        if (request.energyLevel() != null) {
+            user.setCurrentEnergyLevel(request.energyLevel());
+        }
+        user.setUpdatedAt(Instant.now());
+        User updated = userRepository.save(user);
+
+        log.info("Updated profile for user ID {}", userId);
+        return UserResponse.fromEntity(updated);
+    }
 }

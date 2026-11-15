@@ -35,4 +35,9 @@ public interface AuthService {
      * Cập nhật mức năng lượng hiện tại của người dùng.
      */
     UserResponse updateEnergyLevel(UUID userId, User.EnergyLevel energyLevel);
+
+    /**
+     * Cập nhật thông tin hồ sơ người dùng (tên hiển thị, năng lượng).
+     */
+    UserResponse updateProfile(UUID userId, com.orbit.dto.request.UpdateProfileRequest request);
 }

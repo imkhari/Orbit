@@ -66,6 +66,15 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(response, "Đã cập nhật mức năng lượng hiện tại"));
     }
 
+    @PutMapping("/me/profile")
+    public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+        @Valid @RequestBody com.orbit.dto.request.UpdateProfileRequest request
+    ) {
+        User currentUser = resolveAuthenticatedUser();
+        UserResponse response = authService.updateProfile(currentUser.getId(), request);
+        return ResponseEntity.ok(ApiResponse.ok(response, "Cập nhật hồ sơ cá nhân thành công! 🌿"));
+    }
+
     private User resolveAuthenticatedUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof User user) {
