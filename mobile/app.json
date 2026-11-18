@@ -22,10 +22,12 @@
     },
     "plugins": [
       "expo-asset",
+      "expo-secure-store",
       [
         "expo-splash-screen",
         {
           "image": "./assets/splash.png",
+          "imageWidth": 108,
           "resizeMode": "contain",
           "backgroundColor": "#0F172A"
         }

@@ -6,7 +6,6 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -15,12 +14,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
+import java.util.Optional;
 
-@Slf4j
 @Component
 public class JwtTokenProvider {
 
-    @Value("${orbit.jwt.secret:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
+    @Value("${orbit.jwt.secret:}")
     private String jwtSecret;
 
     @Value("${orbit.jwt.access-token-expiration-ms:900000}")
@@ -33,14 +32,10 @@ public class JwtTokenProvider {
 
     @PostConstruct
     public void init() {
-        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
-        if (keyBytes.length < 32) {
-            // Đảm bảo khóa HMAC-SHA256 tối thiểu 256 bits (32 bytes)
-            byte[] padded = new byte[32];
-            System.arraycopy(keyBytes, 0, padded, 0, Math.min(keyBytes.length, 32));
-            this.key = Keys.hmacShaKeyFor(padded);
+        if (jwtSecret.isBlank()) {
+            key = Jwts.SIG.HS256.key().build();
         } else {
-            this.key = Keys.hmacShaKeyFor(keyBytes);
+            key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
         }
     }
 
@@ -50,9 +45,7 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
             .subject(user.getId().toString())
-            .claim("email", user.getEmail())
-            .claim("displayName", user.getDisplayName())
-            .claim("energyLevel", user.getCurrentEnergyLevel() != null ? user.getCurrentEnergyLevel().name() : "MEDIUM")
+            .claim("type", "ACCESS")
             .issuedAt(Date.from(now))
             .expiration(Date.from(expiry))
             .signWith(key)
@@ -72,37 +65,23 @@ public class JwtTokenProvider {
             .compact();
     }
 
-    public boolean validateToken(String token) {
+    public Optional<UUID> accessSubject(String token) {
+        return subject(token, "ACCESS");
+    }
+
+    public Optional<UUID> refreshSubject(String token) {
+        return subject(token, "REFRESH");
+    }
+
+    private Optional<UUID> subject(String token, String expectedType) {
         try {
-            Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            log.warn("Invalid JWT token: {}", e.getMessage());
-            return false;
+            Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+            String type = claims.get("type", String.class);
+            if (!expectedType.equals(type)) return Optional.empty();
+            return Optional.of(UUID.fromString(claims.getSubject()));
+        } catch (JwtException | IllegalArgumentException | NullPointerException ex) {
+            return Optional.empty();
         }
-    }
-
-    public UUID getUserIdFromToken(String token) {
-        Claims claims = Jwts.parser()
-            .verifyWith(key)
-            .build()
-            .parseSignedClaims(token)
-            .getPayload();
-
-        return UUID.fromString(claims.getSubject());
-    }
-
-    public String getEmailFromToken(String token) {
-        Claims claims = Jwts.parser()
-            .verifyWith(key)
-            .build()
-            .parseSignedClaims(token)
-            .getPayload();
-
-        return claims.get("email", String.class);
     }
 
     public long getAccessTokenExpirationSeconds() {

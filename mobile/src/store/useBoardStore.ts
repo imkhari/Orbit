@@ -1,3 +1,4 @@
+import { isCancel } from 'axios';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -5,6 +6,8 @@ import { BoardResponse, CreateBoardRequest, UpdateBoardRequest } from '../types'
 import { BoardService } from '../services/api';
 
 export interface BoardState {
+  workspaceOwner: string | null;
+  bindWorkspace: (owner: string) => void;
   boards: BoardResponse[];
   activeBoardId: string | null;
   isLoading: boolean;
@@ -64,22 +67,30 @@ export const useBoardStore = create<BoardState>()(
       isLoading: false,
       error: null,
 
+      workspaceOwner: null,
+      bindWorkspace: (workspaceOwner) => {
+        if (get().workspaceOwner === workspaceOwner) return;
+        set({ workspaceOwner, boards: DEFAULT_BOARDS, activeBoardId: DEFAULT_BOARDS[0].id, isLoading: false, error: null });
+      },
+
       fetchBoards: async () => {
         set({ isLoading: true, error: null });
         try {
           const fetched = await BoardService.getBoards();
           if (fetched && fetched.length > 0) {
             const currentActive = get().activeBoardId;
-            const stillExists = fetched.some((b) => b.id === currentActive);
+            const active = fetched.filter((b) => !b.isArchived);
+            const stillExists = active.some((b) => b.id === currentActive);
             set({
               boards: fetched,
-              activeBoardId: stillExists ? currentActive : fetched[0].id,
+              activeBoardId: stillExists ? currentActive : active[0]?.id ?? null,
               isLoading: false,
             });
           } else {
             set({ boards: DEFAULT_BOARDS, isLoading: false });
           }
         } catch (err: any) {
+          if (isCancel(err)) return;
           // Offline fallback
           console.warn('[useBoardStore] Failed to fetch boards from backend, using cached boards');
           set({ isLoading: false });
@@ -110,6 +121,7 @@ export const useBoardStore = create<BoardState>()(
           }));
           return newBoard;
         } catch (err: any) {
+          if (isCancel(err)) return null;
           const message =
             err?.response?.data?.message ||
             'Không thể tạo bảng mới lúc này. Vui lòng thử lại sau.';
@@ -128,6 +140,7 @@ export const useBoardStore = create<BoardState>()(
           }));
           return true;
         } catch (err: any) {
+          if (isCancel(err)) return false;
           const message =
             err?.response?.data?.message || 'Không thể cập nhật bảng.';
           set({ error: message, isLoading: false });
@@ -138,12 +151,12 @@ export const useBoardStore = create<BoardState>()(
       archiveBoard: async (boardId: string) => {
         set({ isLoading: true, error: null });
         try {
-          await BoardService.archiveBoard(boardId);
+          const archived = await BoardService.archiveBoard(boardId);
           set((state) => {
-            const nextBoards = state.boards.filter((b) => b.id !== boardId);
+            const nextBoards = state.boards.map((b) => b.id === boardId ? archived : b);
             const nextActive =
               state.activeBoardId === boardId
-                ? (nextBoards[0]?.id ?? null)
+                ? (nextBoards.find((b) => !b.isArchived)?.id ?? null)
                 : state.activeBoardId;
             return {
               boards: nextBoards,
@@ -153,6 +166,7 @@ export const useBoardStore = create<BoardState>()(
           });
           return true;
         } catch (err: any) {
+          if (isCancel(err)) return false;
           const message =
             err?.response?.data?.message || 'Không thể lưu trữ bảng.';
           set({ error: message, isLoading: false });
@@ -168,7 +182,7 @@ export const useBoardStore = create<BoardState>()(
             const nextBoards = state.boards.filter((b) => b.id !== boardId);
             const nextActive =
               state.activeBoardId === boardId
-                ? (nextBoards[0]?.id ?? null)
+                ? (nextBoards.find((b) => !b.isArchived)?.id ?? null)
                 : state.activeBoardId;
             return {
               boards: nextBoards,
@@ -178,6 +192,7 @@ export const useBoardStore = create<BoardState>()(
           });
           return true;
         } catch (err: any) {
+          if (isCancel(err)) return false;
           const message =
             err?.response?.data?.message || 'Không thể xóa bảng.';
           set({ error: message, isLoading: false });
@@ -191,7 +206,9 @@ export const useBoardStore = create<BoardState>()(
       name: 'orbit-board-storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
+        boards: state.boards,
         activeBoardId: state.activeBoardId,
+        workspaceOwner: state.workspaceOwner,
       }),
     }
   )

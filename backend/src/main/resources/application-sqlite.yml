@@ -1,0 +1,16 @@
+server:
+  address: 127.0.0.1
+
+spring:
+  datasource:
+    url: "jdbc:sqlite:${ORBIT_SQLITE_PATH:orbit-local.sqlite}?foreign_keys=on&busy_timeout=5000"
+    driver-class-name: org.sqlite.JDBC
+    username: ""
+    password: ""
+    hikari:
+      maximum-pool-size: 1
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.community.dialect.SQLiteDialect

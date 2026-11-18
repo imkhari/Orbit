@@ -34,6 +34,9 @@ class SubtaskServiceTest {
     private TaskRepository taskRepository;
 
     @Mock
+    private TaskOwnership ownership;
+
+    @Mock
     private SubtaskRepository subtaskRepository;
 
     @Mock
@@ -60,8 +63,8 @@ class SubtaskServiceTest {
     @Test
     @DisplayName("Bulk Save: Lưu hàng loạt các vi bước vào DB và cập nhật số lượng subtasks của Task")
     void shouldSaveBulkSubtasksSuccessfully() {
-        when(taskRepository.findById(taskId)).thenReturn(Optional.of(testTask));
-        when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(ownership.require(taskId)).thenReturn(testTask);
+        when(taskRepository.saveAndFlush(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         BulkSubtasksRequest request = new BulkSubtasksRequest(List.of(
                 new SubtaskItemRequest("Mở file tài liệu đề cương", 4, Task.EnergyRequirement.LOW, 1, false),
@@ -77,7 +80,7 @@ class SubtaskServiceTest {
         assertThat(testTask.getSubtasks()).hasSize(3);
         assertThat(testTask.getSubtasks().get(0).getTitle()).isEqualTo("Mở file tài liệu đề cương");
 
-        verify(taskRepository, times(1)).save(testTask);
+        verify(taskRepository, times(1)).saveAndFlush(testTask);
     }
 
     @Test
@@ -91,7 +94,7 @@ class SubtaskServiceTest {
                 .isCompleted(false)
                 .build();
 
-        when(subtaskRepository.findById(subtaskId)).thenReturn(Optional.of(subtask));
+        when(subtaskRepository.findByIdAndTaskId(subtaskId, taskId)).thenReturn(Optional.of(subtask));
         when(subtaskRepository.save(any(Subtask.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SubtaskResponse response = subtaskService.toggleSubtask(taskId, subtaskId);
@@ -108,7 +111,6 @@ class SubtaskServiceTest {
     @Test
     @DisplayName("Get Subtasks: Lấy danh sách subtasks theo thứ tự stepOrder")
     void shouldGetSubtasksOrdered() {
-        when(taskRepository.existsById(taskId)).thenReturn(true);
         when(subtaskRepository.findByTaskIdOrderByStepOrderAsc(taskId)).thenReturn(List.of(
                 Subtask.builder().id(UUID.randomUUID()).task(testTask).title("Bước 1").stepOrder(1).build(),
                 Subtask.builder().id(UUID.randomUUID()).task(testTask).title("Bước 2").stepOrder(2).build()

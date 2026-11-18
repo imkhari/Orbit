@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Mobile-React%20Native%20%7C%20Expo-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React Native" />
   <img src="https://img.shields.io/badge/Backend-Spring%20Boot%203-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot" />
   <img src="https://img.shields.io/badge/Database-PostgreSQL%2015-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
-  <img src="https://img.shields.io/badge/AI-Gemini%201.5%20Flash-orange?style=for-the-badge&logo=google&logoColor=white" alt="AI" />
+  <img src="https://img.shields.io/badge/AI-Gemini%20Flash-orange?style=for-the-badge&logo=google&logoColor=white" alt="AI" />
 </p>
 
 ---
@@ -58,7 +58,7 @@ graph LR
 
     subgraph Cloud ["☁️ Data & AI Services"]
         H[(PostgreSQL 15)]
-        I[Google Gemini 1.5 Flash]
+        I[Google Gemini Flash]
     end
 
     Mobile -- "HTTPS / JWT" --> D
@@ -80,7 +80,7 @@ orbit_project/
 │   │   ├── backend_clean_architecture.md # Spring Boot 3 Clean Architecture & API Specs
 │   │   └── adhd_cognitive_ux_rules.md    # ADHD Cognitive UX & WCAG 2.1 AA Rules
 │   └── skills/                     # On-demand Agent Procedural Skills
-│       ├── ai-task-decomposer/     # Gemini 1.5 Flash Task Decomposition Engine
+│       ├── ai-task-decomposer/     # Gemini Task Decomposition Engine
 │       ├── adhd-ui-evaluator/      # Automated WCAG 2.1 AA & Haptics Audit Skill
 │       └── orbit-feature-builder/  # Fullstack Autonomous Feature Implementation Skill
 ├── docs/                           # Software Engineering & Product Documentation
@@ -128,7 +128,7 @@ orbit_project/
 | **Backend API** | **Spring Boot 3.x (Java 17/21)** | Enterprise-grade reliability, strict layered separation, and comprehensive security standards. |
 | **Security** | **Spring Security + JWT + OAuth2** | Stateless authentication with one-tap Google Identity sign-in. |
 | **Database** | **PostgreSQL 15+** | Robust ACID relational persistence ensuring data integrity and fast indexed queries. |
-| **AI Engine** | **Spring AI + Google Gemini 1.5 Flash** | Sub-3s structured JSON task decomposition with human-in-the-loop validation. |
+| **AI Engine** | **Gemini GenerateContent API** | Structured task decomposition with a 3-second deadline and editable fallback suggestions. |
 
 ---
 
@@ -140,3 +140,21 @@ This repository strictly follows the Conventional Commits specification:
 * `fix:` Bug fixes or UI remediation.
 * `refactor:` Code refactoring without behavioral alterations.
 * `chore:` Build scripts, dependency updates, and environment configuration.
+
+## Chạy Orbit và kiểm tra tài khoản
+
+Từ thư mục `backend`, chạy `./mvnw spring-boot:run -Dspring-boot.run.profiles=sqlite`.
+Bản này mặc định yêu cầu đăng nhập. SQLite lưu dữ liệu vào `backend/orbit-local.sqlite`.
+Đặt `JWT_SECRET` thành một khóa riêng tối thiểu 32 byte nếu muốn giữ phiên qua các lần khởi động lại backend.
+Khi biến này trống, backend tạo khóa ngẫu nhiên cho lần chạy hiện tại.
+
+Để tiếp tục dùng dữ liệu khách của bản thử trên cùng máy, chạy
+`ORBIT_DEMO_ANONYMOUS=true ./mvnw spring-boot:run -Dspring-boot.run.profiles=sqlite`.
+Chế độ này dành cho kết nối loopback trực tiếp. Giữ tắt khi đưa backend lên mạng hoặc đặt sau proxy.
+
+Từ thư mục `mobile`, dùng `npm run start -- --go --localhost --android` để mở Expo Go.
+Chạy kiểm thử bằng `./mvnw test` trong `backend` và
+`node ./node_modules/typescript/bin/tsc --noEmit` trong `mobile`.
+
+Để bật Gemini cho “Chia nhỏ việc”, đặt `GEMINI_API_KEY` trong môi trường backend rồi khởi động lại.
+`GEMINI_MODEL` mặc định là `gemini-3.5-flash-lite`. Khi thiếu key hoặc Gemini không trả về các bước hợp lệ trong 3 giây, Orbit dùng “Gợi ý nhanh” bằng ngôn ngữ giao diện.

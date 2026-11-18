@@ -7,7 +7,6 @@ import com.orbit.entity.Task;
 import com.orbit.entity.User;
 import com.orbit.exception.WipLimitExceededException;
 import com.orbit.repository.TaskRepository;
-import com.orbit.repository.UserRepository;
 import com.orbit.service.impl.TaskServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,7 +33,7 @@ class TaskServiceTest {
     private TaskRepository taskRepository;
 
     @Mock
-    private UserRepository userRepository;
+    private TaskOwnership ownership;
 
     @Mock
     private com.orbit.service.StreakService streakService;
@@ -87,7 +86,7 @@ class TaskServiceTest {
             mockUser.getId()
         );
 
-        when(userRepository.findById(mockUser.getId())).thenReturn(Optional.of(mockUser));
+        when(ownership.account()).thenReturn(mockUser);
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> {
             Task t = invocation.getArgument(0);
             t.setId(UUID.randomUUID());
@@ -107,7 +106,7 @@ class TaskServiceTest {
     void updateTaskStatus_Doing_Success() {
         UpdateTaskStatusRequest request = new UpdateTaskStatusRequest(Task.TaskStatus.DOING);
 
-        when(taskRepository.findById(mockTask.getId())).thenReturn(Optional.of(mockTask));
+        when(ownership.require(mockTask.getId())).thenReturn(mockTask);
         when(taskRepository.countByUserIdAndStatus(mockUser.getId(), Task.TaskStatus.DOING)).thenReturn(0L);
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -122,7 +121,7 @@ class TaskServiceTest {
     void updateTaskStatus_Doing_ThrowsWipLimitExceededException() {
         UpdateTaskStatusRequest request = new UpdateTaskStatusRequest(Task.TaskStatus.DOING);
 
-        when(taskRepository.findById(mockTask.getId())).thenReturn(Optional.of(mockTask));
+        when(ownership.require(mockTask.getId())).thenReturn(mockTask);
         when(taskRepository.countByUserIdAndStatus(mockUser.getId(), Task.TaskStatus.DOING)).thenReturn(1L);
 
         assertThatThrownBy(() -> taskService.updateTaskStatus(mockTask.getId(), request))
@@ -137,7 +136,7 @@ class TaskServiceTest {
     void updateTaskStatus_Done_SetsCompletedAt() {
         UpdateTaskStatusRequest request = new UpdateTaskStatusRequest(Task.TaskStatus.DONE);
 
-        when(taskRepository.findById(mockTask.getId())).thenReturn(Optional.of(mockTask));
+        when(ownership.require(mockTask.getId())).thenReturn(mockTask);
         when(taskRepository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TaskResponse response = taskService.updateTaskStatus(mockTask.getId(), request);
@@ -163,7 +162,7 @@ class TaskServiceTest {
                 mockUser.getId()
         );
 
-        when(userRepository.findById(mockUser.getId())).thenReturn(Optional.of(mockUser));
+        when(ownership.account()).thenReturn(mockUser);
         when(taskRepository.save(any(Task.class))).thenAnswer(i -> {
             Task t = i.getArgument(0);
             t.setId(UUID.randomUUID());
@@ -189,7 +188,7 @@ class TaskServiceTest {
 
         UpdateTaskStatusRequest request = new UpdateTaskStatusRequest(Task.TaskStatus.TODO);
 
-        when(taskRepository.findById(mockTask.getId())).thenReturn(Optional.of(mockTask));
+        when(ownership.require(mockTask.getId())).thenReturn(mockTask);
         when(taskRepository.save(any(Task.class))).thenAnswer(i -> i.getArgument(0));
 
         TaskResponse response = taskService.updateTaskStatus(mockTask.getId(), request);
@@ -222,7 +221,7 @@ class TaskServiceTest {
                 .estimatedMinutes(120)
                 .build();
 
-        when(userRepository.findByEmail("demo@orbit.app")).thenReturn(Optional.of(mockUser));
+        when(ownership.account()).thenReturn(mockUser);
         when(taskRepository.findByUserIdOrderByPositionAsc(mockUser.getId())).thenReturn(java.util.List.of(lowTask, highTask));
 
         com.orbit.dto.request.RescueTaskRequest request = new com.orbit.dto.request.RescueTaskRequest(

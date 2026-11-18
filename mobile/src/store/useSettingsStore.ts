@@ -4,7 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EnergyLevel, SoundscapeType } from '../types';
 import { SoundscapeService } from '../services/soundscape';
 
+export type Language = 'vi' | 'en';
+
 export interface SettingsState {
+  language: Language;
+  setLanguage: (language: Language) => void;
   defaultEnergyLevel: EnergyLevel;
   pomodoroMinutes: 15 | 25 | 45;
   soundscape: SoundscapeType;
@@ -27,6 +31,8 @@ export interface SettingsState {
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
+      language: 'vi',
+      setLanguage: (language) => set({ language }),
       defaultEnergyLevel: 'MEDIUM',
       pomodoroMinutes: 25,
       soundscape: 'BROWN_NOISE',
@@ -92,6 +98,7 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'orbit-settings-storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
+        language: state.language,
         defaultEnergyLevel: state.defaultEnergyLevel,
         pomodoroMinutes: state.pomodoroMinutes,
         soundscape: state.soundscape,

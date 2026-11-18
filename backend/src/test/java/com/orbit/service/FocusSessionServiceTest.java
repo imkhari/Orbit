@@ -73,7 +73,7 @@ class FocusSessionServiceTest {
         LogFocusSessionRequest request = new LogFocusSessionRequest(taskId, 25, true);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
-        when(taskRepository.findById(taskId)).thenReturn(Optional.of(mockTask));
+        when(taskRepository.findByIdAndUserId(taskId, userId)).thenReturn(Optional.of(mockTask));
         when(focusSessionRepository.save(any(FocusSession.class))).thenAnswer(i -> {
             FocusSession session = i.getArgument(0);
             session.setId(UUID.randomUUID());
@@ -97,7 +97,7 @@ class FocusSessionServiceTest {
         LogFocusSessionRequest request = new LogFocusSessionRequest(taskId, 10, false);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
-        when(taskRepository.findById(taskId)).thenReturn(Optional.of(mockTask));
+        when(taskRepository.findByIdAndUserId(taskId, userId)).thenReturn(Optional.of(mockTask));
         when(focusSessionRepository.save(any(FocusSession.class))).thenAnswer(i -> {
             FocusSession session = i.getArgument(0);
             session.setId(UUID.randomUUID());

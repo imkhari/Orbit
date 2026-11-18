@@ -23,6 +23,7 @@ export interface Subtask {
 
 export interface Task {
   id: string;
+  clientId?: string;
   boardId: string;
   title: string;
   description?: string;

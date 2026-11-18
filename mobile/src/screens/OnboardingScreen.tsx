@@ -1,13 +1,15 @@
+import { LanguageButton } from '../ui/Controls';
+import { useLocale } from '../ui/locale';
 import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   View,
-  SafeAreaView,
   TouchableOpacity,
   Platform,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { EnergyLevel } from '../types';
 
@@ -20,24 +22,25 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   onComplete,
   onNavigateAuth,
 }) => {
+  const t = useLocale();
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyLevel>('MEDIUM');
   const [activeSlide, setActiveSlide] = useState<number>(0);
 
   const tenets = [
     {
       icon: '🧩',
-      title: 'Bẻ nhỏ việc lớn thành bước <20p',
-      desc: 'Trí tuệ nhân tạo Gemini giúp bạn phân rã những công việc phức tạp thành các hành động mồi nhỏ, bước 1 chỉ dưới 5 phút.',
+      title: t("Bẻ nhỏ việc lớn thành bước <20p", "Break a big task into small steps"),
+      desc: t("Trí tuệ nhân tạo Gemini giúp bạn phân rã những công việc phức tạp thành các hành động mồi nhỏ, bước 1 chỉ dưới 5 phút.", "Orbit can suggest a first step that takes under 5 minutes."),
     },
     {
       icon: '⚡',
-      title: 'Chọn việc đúng mức năng lượng',
-      desc: 'Lọc và làm những việc vừa sức với trạng thái não bộ hôm nay. Không ép buộc, không mặc cảm tội lỗi.',
+      title: t("Chọn việc đúng mức năng lượng", "Pick a task that fits your energy"),
+      desc: t("Lọc và làm những việc vừa sức với trạng thái não bộ hôm nay. Không ép buộc, không mặc cảm tội lỗi.", "Find something manageable based on your energy today."),
     },
     {
       icon: '🎯',
-      title: 'Đơn nhiệm tuyệt đối — 0 áp lực',
-      desc: 'Cột Đang làm chỉ cho phép duy nhất 1 việc. Không có cảnh báo đỏ hoảng loạn, có Khiên Đóng Băng bảo vệ chuỗi ngày.',
+      title: t("Đơn nhiệm tuyệt đối — 0 áp lực", "Focus on one task"),
+      desc: t("Cột Đang làm chỉ cho phép duy nhất 1 việc. Không có cảnh báo đỏ hoảng loạn, có Khiên Đóng Băng bảo vệ chuỗi ngày.", "Keep one task in progress and pick it up when you’re ready."),
     },
   ];
 
@@ -58,22 +61,22 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
   const energyOptions: Array<{ level: EnergyLevel; label: string; desc: string; color: string; bg: string }> = [
     {
       level: 'LOW',
-      label: '☕ Thấp',
-      desc: 'Não mệt, cần việc dễ',
+      label: t("☕ Thấp", "☕ Low"),
+      desc: t("Não mệt, cần việc dễ", "I need an easy task"),
       color: '#94A3B8',
       bg: 'rgba(148, 163, 184, 0.12)',
     },
     {
       level: 'MEDIUM',
-      label: '⚡ Vừa',
-      desc: 'Sẵn sàng việc vừa sức',
+      label: t("⚡ Vừa", "⚡ Medium"),
+      desc: t("Sẵn sàng việc vừa sức", "Ready for a manageable task"),
       color: '#FBBF24',
       bg: 'rgba(251, 191, 36, 0.12)',
     },
     {
       level: 'HIGH',
-      label: '🔥 Cao',
-      desc: 'Hyperfocus sung sức',
+      label: t("🔥 Cao", "🔥 High"),
+      desc: t("Hyperfocus sung sức", "Ready for deeper focus"),
       color: '#F87171',
       bg: 'rgba(248, 113, 113, 0.12)',
     },
@@ -81,6 +84,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={{ alignItems: "flex-end", paddingHorizontal: 20 }}><LanguageButton /></View>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -88,7 +92,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
         {/* Brand Header */}
         <View style={styles.brandHeader}>
           <Text style={styles.brandLogo}>🌌 ORBIT</Text>
-          <Text style={styles.brandTagline}>Quỹ đạo bình yên cho tâm trí ADHD</Text>
+          <Text style={styles.brandTagline}>{t("Quỹ đạo bình yên cho tâm trí ADHD", "A calmer space for ADHD minds")}</Text>
         </View>
 
         {/* 3 Core Tenets Card */}
@@ -112,7 +116,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessible={true}
                 accessibilityRole="button"
-                accessibilityLabel={`Chuyển đến trang giới thiệu ${idx + 1}`}
+                accessibilityLabel={t(`Chuyển đến trang giới thiệu ${idx + 1}`, `Go to introduction page ${idx + 1}`)}
               />
             ))}
           </View>
@@ -120,9 +124,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
 
         {/* Initial Energy Calibration Section */}
         <View style={styles.energySection}>
-          <Text style={styles.energyQuestion}>
-            Hiện tại bạn đang cảm thấy năng lượng thế nào?
-          </Text>
+          <Text style={styles.energyQuestion}>{t("Hiện tại bạn đang cảm thấy năng lượng thế nào?", "How is your energy right now?")}</Text>
 
           <View style={styles.energyOptionsRow}>
             {energyOptions.map((opt) => {
@@ -158,11 +160,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           activeOpacity={0.8}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel="Bắt đầu hành trình tập trung"
+          accessibilityLabel={t("Bắt đầu hành trình tập trung", "Start using Orbit")}
         >
-          <Text style={styles.primaryBtnText}>
-            BẮT ĐẦU HÀNH TRÌNH TẬP TRUNG 🚀
-          </Text>
+          <Text style={styles.primaryBtnText}>{t("BẮT ĐẦU HÀNH TRÌNH TẬP TRUNG 🚀", "Start using Orbit")}</Text>
         </TouchableOpacity>
 
         {/* Secondary Auth Link */}
@@ -172,10 +172,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({
           activeOpacity={0.7}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel="Đăng nhập hoặc đăng ký tài khoản"
+          accessibilityLabel={t("Đăng nhập hoặc đăng ký tài khoản", "Sign in or create an account")}
         >
-          <Text style={styles.authLinkText}>
-            Đã có tài khoản? <Text style={styles.authLinkHighlight}>Đăng nhập ngay</Text>
+          <Text style={styles.authLinkText}>{t("Đã có tài khoản?", "Already have an account?")}<Text style={styles.authLinkHighlight}>{t("Đăng nhập ngay", "Sign in")}</Text>
           </Text>
         </TouchableOpacity>
       </ScrollView>

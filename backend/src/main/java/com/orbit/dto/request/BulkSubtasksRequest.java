@@ -5,7 +5,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.util.List;
@@ -14,7 +14,7 @@ import java.util.List;
  * DTO nhận danh sách các bước con (Subtasks) đã được người dùng phê duyệt để lưu hàng loạt vào DB.
  */
 public record BulkSubtasksRequest(
-        @NotEmpty(message = "Danh sách subtasks không được để trống")
+        @NotNull(message = "Cần gửi danh sách bước nhỏ")
         @Valid
         List<SubtaskItemRequest> subtasks
 ) {

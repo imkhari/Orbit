@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import { ActionButton, ScreenHeader } from '../ui/Controls';
+import { colors } from '../ui/theme';
+import { useLocale } from '../ui/locale';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   Modal,
   TouchableOpacity,
-  ActivityIndicator,
-  Platform,
   ScrollView,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { EnergyLevel, RescueTaskResponse, Task } from '../types';
+import { EnergyLevel, RescueTaskResponse, Subtask } from '../types';
 import { TaskService } from '../services/api';
 
 interface RescueModalProps {
   visible: boolean;
   onClose: () => void;
-  onStartFocus: (task: Task) => void;
+  onStartFocus: (taskId: string, step?: Subtask) => Promise<boolean>;
   currentEnergy?: EnergyLevel;
   activeBoardId?: string | null;
 }
@@ -28,37 +28,43 @@ export const RescueModal: React.FC<RescueModalProps> = ({
   currentEnergy = 'MEDIUM',
   activeBoardId,
 }) => {
+  const t = useLocale();
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyLevel>(currentEnergy);
   const [availableMinutes, setAvailableMinutes] = useState<number>(25);
   const [rescueData, setRescueData] = useState<RescueTaskResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const requestId = useRef(0);
+  const starting = useRef(false);
 
   useEffect(() => {
     if (visible) {
       setSelectedEnergy(currentEnergy);
-      fetchRecommendation(currentEnergy, availableMinutes);
+      setRescueData(null);
+      void fetchRecommendation(currentEnergy, availableMinutes);
     }
-  }, [visible, currentEnergy]);
+    return () => { requestId.current += 1; };
+  }, [visible, currentEnergy, activeBoardId]);
 
   const fetchRecommendation = async (energy: EnergyLevel, minutes: number) => {
+    const id = ++requestId.current;
     setIsLoading(true);
     setError(null);
+    setStartError(null);
     try {
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      const boardId = activeBoardId && /^[a-f0-9-]{36}$/i.test(activeBoardId) ? activeBoardId : undefined;
       const data = await TaskService.getRescueRecommendation({
-        boardId: activeBoardId || undefined,
+        boardId,
         currentEnergy: energy,
         availableMinutes: minutes,
       });
-      setRescueData(data);
-    } catch (err: any) {
-      console.warn('Rescue recommendation error:', err);
-      setError('Chưa tìm thấy nhiệm vụ phù hợp trong bảng. Hãy thêm một vài việc nhẹ nhàng nhé!');
+      if (requestId.current === id) setRescueData(data);
+    } catch {
+      if (requestId.current === id) setError(t("Chưa tải được gợi ý. Bạn có thể thử lại.", "Could not load a suggestion. Try again."));
     } finally {
-      setIsLoading(false);
+      if (requestId.current === id) setIsLoading(false);
     }
   };
 
@@ -72,78 +78,58 @@ export const RescueModal: React.FC<RescueModalProps> = ({
     fetchRecommendation(selectedEnergy, minutes);
   };
 
-  const handleStartAction = () => {
-    if (!rescueData?.task) return;
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const starterTitle = rescueData?.starterSubtask?.id ? rescueData.starterSubtask.title
+    : t('Chuẩn bị thứ đầu tiên bạn cần để bắt đầu việc này', 'Get the first thing you need to start');
+
+  const handleStartAction = async () => {
+    if (!rescueData?.task || starting.current) return;
+    starting.current = true;
+    setIsStarting(true);
+    setStartError(null);
+    const { task, starterSubtask } = rescueData;
+    const step: Subtask | undefined = starterSubtask ? {
+      ...starterSubtask,
+      title: starterTitle,
+      taskId: task.id,
+      id: starterSubtask.id ?? '',
+      isCompleted: false,
+    } : undefined;
+
+    try {
+      if (await onStartFocus(task.id, step)) onClose();
+      else setStartError(t("Chưa bắt đầu được việc này. Bạn có thể thử lại hoặc quay về bảng.", "Could not start this task. Try again or return to the board."));
+    } finally {
+      starting.current = false;
+      setIsStarting(false);
     }
-    const t: Task = {
-      id: rescueData.task.id,
-      boardId: rescueData.task.boardId || 'board-main',
-      title: rescueData.task.title,
-      description: rescueData.task.description,
-      status: rescueData.task.status,
-      urgency: rescueData.task.urgency,
-      energyRequired: rescueData.task.energyRequired,
-      estimatedMinutes: rescueData.task.estimatedMinutes,
-      deadline: rescueData.task.deadline,
-      position: rescueData.task.position ?? 0,
-      subtasks: (rescueData.task.subtasks || []).map((s) => ({
-        id: s.id,
-        taskId: s.taskId || rescueData.task.id,
-        title: s.title,
-        estimatedMinutes: s.estimatedMinutes ?? 15,
-        energyLevel: s.energyLevel ?? 'LOW',
-        stepOrder: s.stepOrder ?? 1,
-        isCompleted: Boolean(s.isCompleted),
-        completedAt: s.completedAt,
-      })),
-      createdAt: rescueData.task.createdAt,
-      completedAt: rescueData.task.completedAt,
-    };
-    onClose();
-    onStartFocus(t);
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={() => { if (!starting.current) onClose(); }}>
       <View style={styles.overlay}>
         <View style={styles.modalCard}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerTitleRow}>
-              <Text style={styles.magicIcon}>✨</Text>
-              <Text style={styles.title}>Cứu Tê Liệt Não (Magic Pick)</Text>
-            </View>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeButton}
-              accessible
-              accessibilityRole="button"
-              accessibilityLabel="Đóng modal cứu tê liệt não"
-            >
-              <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
-          </View>
+          <ScreenHeader title={t('Một việc vừa sức', 'A manageable task')}
+            onClose={() => { if (!starting.current) onClose(); }} />
 
-          <Text style={styles.subtitle}>
-            Bạn đang bị ngợp trước danh sách công việc? Thuật toán P(T) sẽ chọn giúp bạn duy nhất 1 việc vừa sức nhất ngay lúc này.
-          </Text>
+          <Text style={styles.subtitle}>{t("Orbit gợi ý một việc theo năng lượng và thời gian bạn có.", "Orbit suggests a task based on your energy and time.")}</Text>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {/* Bộ chọn năng lượng nhanh */}
             <View style={styles.filterSection}>
-              <Text style={styles.sectionLabel}>Năng lượng hiện tại của bạn:</Text>
+              <Text style={styles.sectionLabel}>{t("Năng lượng hiện tại của bạn:", "Your current energy")}</Text>
               <View style={styles.chipsRow}>
                 {(['LOW', 'MEDIUM', 'HIGH'] as EnergyLevel[]).map((level) => {
                   const isSelected = selectedEnergy === level;
                   const label =
-                    level === 'LOW' ? '☕ Kiệt sức' : level === 'HIGH' ? '🔥 Sung mãn' : '⚡ Vừa sức';
+                    level === 'LOW' ? t('Thấp') : level === 'HIGH' ? t('Cao') : t('Vừa');
                   return (
                     <TouchableOpacity
                       key={level}
                       style={[styles.chip, isSelected && styles.chipActive]}
                       onPress={() => handleEnergyChange(level)}
+                      disabled={isStarting}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
                       activeOpacity={0.7}
                     >
                       <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
@@ -157,7 +143,7 @@ export const RescueModal: React.FC<RescueModalProps> = ({
 
             {/* Bộ chọn thời gian rảnh */}
             <View style={styles.filterSection}>
-              <Text style={styles.sectionLabel}>Thời gian bạn có thể dành ra:</Text>
+              <Text style={styles.sectionLabel}>{t("Thời gian bạn có thể dành ra:", "Time you have available")}</Text>
               <View style={styles.chipsRow}>
                 {[15, 25, 45].map((mins) => {
                   const isSelected = availableMinutes === mins;
@@ -166,10 +152,13 @@ export const RescueModal: React.FC<RescueModalProps> = ({
                       key={mins}
                       style={[styles.chip, isSelected && styles.chipActive]}
                       onPress={() => handleMinutesChange(mins)}
+                      disabled={isStarting}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
                       activeOpacity={0.7}
                     >
                       <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                        ⏱️ {mins} phút
+                        {t(`${mins} phút`, `${mins} min`)}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -180,30 +169,25 @@ export const RescueModal: React.FC<RescueModalProps> = ({
             {/* Nội dung đề xuất */}
             {isLoading ? (
               <View style={styles.loadingBox}>
-                <ActivityIndicator size="large" color="#38BDF8" />
-                <Text style={styles.loadingText}>Đang quét và tính điểm P(T) thích ứng...</Text>
+                <View style={styles.skeleton} accessibilityElementsHidden />
+                <Text style={styles.loadingText} accessibilityLiveRegion="polite">{t("Đang tìm một việc vừa sức…", "Finding a manageable task…")}</Text>
               </View>
             ) : error ? (
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyIcon}>🌿</Text>
                 <Text style={styles.emptyText}>{error}</Text>
+                <ActionButton label={t('Thử lại')} onPress={() => void fetchRecommendation(selectedEnergy, availableMinutes)} />
               </View>
             ) : rescueData?.task ? (
               <View style={styles.recommendationCard}>
                 {/* Score & Match badge */}
                 <View style={styles.badgeRow}>
-                  <View style={styles.scoreBadge}>
-                    <Text style={styles.scoreText}>
-                      Điểm phù hợp: {rescueData.priorityScore || 95}/100
-                    </Text>
-                  </View>
                   <View style={styles.energyBadge}>
                     <Text style={styles.energyBadgeText}>
                       {rescueData.task.energyRequired === 'LOW'
-                        ? '☕ Nhẹ nhàng'
+                        ? t('Thấp')
                         : rescueData.task.energyRequired === 'HIGH'
-                        ? '🔥 Cao'
-                        : '⚡ Vừa'}
+                        ? t('Cao')
+                        : t('Vừa')}
                     </Text>
                   </View>
                 </View>
@@ -220,47 +204,26 @@ export const RescueModal: React.FC<RescueModalProps> = ({
                 {Boolean(rescueData.starterSubtask) && (
                   <View style={styles.starterBox}>
                     <View style={styles.starterHeader}>
-                      <Text style={styles.starterIcon}>🎯</Text>
                       <Text style={styles.starterLabel}>
-                        Vi bước khởi động ({rescueData.starterSubtask?.estimatedMinutes || 3} phút):
+                        {t(`Bước đầu tiên · ${rescueData.starterSubtask?.estimatedMinutes || 3} phút`, `First step · ${rescueData.starterSubtask?.estimatedMinutes || 3} min`)}
                       </Text>
                     </View>
                     <Text style={styles.starterTitle}>
-                      {rescueData.starterSubtask?.title}
+                      {starterTitle}
                     </Text>
                   </View>
                 )}
 
-                {/* Lời giải thích & tâm lý dịu dàng */}
-                <View style={styles.reasonBox}>
-                  <Text style={styles.reasonIcon}>💡</Text>
-                  <Text style={styles.reasonText}>{rescueData.whyRecommended}</Text>
-                </View>
-
-                <View style={styles.encouragementBox}>
-                  <Text style={styles.encouragementText}>
-                    {rescueData.gentleEncouragement}
-                  </Text>
-                </View>
+                {startError && <Text style={styles.emptyText} accessibilityLiveRegion="polite">{startError}</Text>}
 
                 {/* Nút bắt đầu ngay */}
-                <TouchableOpacity
-                  style={styles.startButton}
-                  onPress={handleStartAction}
-                  activeOpacity={0.8}
-                  accessible
-                  accessibilityRole="button"
-                  accessibilityLabel="Bắt đầu ngay nhiệm vụ này"
-                >
-                  <Text style={styles.startButtonText}>🚀 Bắt Đầu Ngay (Chuyển sang Focus)</Text>
-                </TouchableOpacity>
+                <ActionButton label={isStarting ? t('Đang lưu…', 'Saving…')
+                  : rescueData.starterSubtask ? t('Bắt đầu bước này') : t('Bắt đầu việc này', 'Start this task')}
+                  disabled={isStarting} onPress={() => void handleStartAction()} />
               </View>
             ) : (
               <View style={styles.emptyBox}>
-                <Text style={styles.emptyIcon}>🎉</Text>
-                <Text style={styles.emptyText}>
-                  Bạn đã hoàn thành hết các nhiệm vụ đang chờ! Hãy nghỉ ngơi hoặc thêm việc mới nhé.
-                </Text>
+                <Text style={styles.emptyText}>{t("Chưa có việc để gợi ý. Bạn có thể thêm một việc trên bảng.", "No tasks to suggest. Capture a task on the board.")}</Text>
               </View>
             )}
           </ScrollView>
@@ -281,54 +244,15 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxHeight: '90%',
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#38BDF8',
-    padding: 20,
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  magicIcon: {
-    fontSize: 22,
-    marginRight: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    flex: 1,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#334155',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeText: {
-    fontSize: 16,
-    color: '#94A3B8',
-    fontWeight: '600',
+    borderColor: colors.border,
+    padding: 16,
   },
   subtitle: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: colors.muted,
     lineHeight: 18,
     marginBottom: 16,
   },
@@ -353,55 +277,52 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 10,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.canvas,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.border,
     alignItems: 'center',
     minHeight: 44,
     justifyContent: 'center',
   },
   chipActive: {
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38BDF8',
+    borderColor: colors.accent,
   },
   chipText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: colors.muted,
     fontWeight: '500',
   },
   chipTextActive: {
-    color: '#38BDF8',
+    color: colors.accent,
     fontWeight: '700',
   },
   loadingBox: {
-    padding: 32,
+    paddingVertical: 16,
     alignItems: 'center',
   },
+  skeleton: { width: '100%', height: 40, borderRadius: 10, backgroundColor: colors.border },
   loadingText: {
     marginTop: 12,
     fontSize: 13,
-    color: '#38BDF8',
+    color: colors.accent,
   },
   emptyBox: {
-    padding: 24,
-    alignItems: 'center',
-  },
-  emptyIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+    padding: 12,
+    gap: 12,
   },
   emptyText: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: colors.muted,
     textAlign: 'center',
     lineHeight: 18,
   },
   recommendationCard: {
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.canvas,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
+    borderColor: colors.border,
     marginTop: 4,
   },
   badgeRow: {
@@ -409,17 +330,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
-  },
-  scoreBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-  },
-  scoreText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#38BDF8',
   },
   energyBadge: {
     backgroundColor: 'rgba(251, 191, 36, 0.15)',
@@ -430,18 +340,18 @@ const styles = StyleSheet.create({
   energyBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#FBBF24',
+    color: colors.warning,
   },
   taskTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: colors.text,
     lineHeight: 22,
     marginBottom: 6,
   },
   taskDesc: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: colors.muted,
     lineHeight: 18,
     marginBottom: 12,
   },
@@ -458,58 +368,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 4,
   },
-  starterIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
   starterLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#34D399',
-    textTransform: 'uppercase',
+    color: colors.success,
   },
   starterTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F8FAFC',
-  },
-  reasonBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 8,
-  },
-  reasonIcon: {
-    fontSize: 14,
-    marginRight: 6,
-  },
-  reasonText: {
-    fontSize: 12,
-    color: '#CBD5E1',
-    flex: 1,
-  },
-  encouragementBox: {
-    marginBottom: 16,
-  },
-  encouragementText: {
-    fontSize: 12,
-    color: '#38BDF8',
-    fontStyle: 'italic',
-    lineHeight: 16,
-  },
-  startButton: {
-    backgroundColor: '#0284C7',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  startButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
   },
 });

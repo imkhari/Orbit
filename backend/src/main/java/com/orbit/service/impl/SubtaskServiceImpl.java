@@ -9,6 +9,7 @@ import com.orbit.exception.ResourceNotFoundException;
 import com.orbit.repository.SubtaskRepository;
 import com.orbit.repository.TaskRepository;
 import com.orbit.service.SubtaskService;
+import com.orbit.service.TaskOwnership;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,14 +26,14 @@ import java.util.UUID;
 public class SubtaskServiceImpl implements SubtaskService {
 
     private final TaskRepository taskRepository;
+    private final TaskOwnership ownership;
     private final SubtaskRepository subtaskRepository;
     private final com.orbit.service.StreakService streakService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public TaskResponse saveBulkSubtasks(UUID taskId, BulkSubtasksRequest request) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Nhiệm vụ không tồn tại với ID: " + taskId));
+        Task task = ownership.require(taskId);
 
         log.info("Saving {} bulk subtasks for task ID: {}", request.subtasks().size(), taskId);
 
@@ -54,7 +55,7 @@ public class SubtaskServiceImpl implements SubtaskService {
             task.getSubtasks().add(subtask);
         }
 
-        Task savedTask = taskRepository.save(task);
+        Task savedTask = taskRepository.saveAndFlush(task);
         log.info("Bulk subtasks saved successfully for task ID: {}. Total subtasks: {}", taskId, savedTask.getSubtasks().size());
 
         return TaskResponse.fromEntity(savedTask);
@@ -63,12 +64,9 @@ public class SubtaskServiceImpl implements SubtaskService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public SubtaskResponse toggleSubtask(UUID taskId, UUID subtaskId) {
-        Subtask subtask = subtaskRepository.findById(subtaskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Vi bước không tồn tại với ID: " + subtaskId));
-
-        if (!subtask.getTask().getId().equals(taskId)) {
-            throw new IllegalArgumentException("Vi bước ID " + subtaskId + " không thuộc về nhiệm vụ ID " + taskId);
-        }
+        ownership.require(taskId);
+        Subtask subtask = subtaskRepository.findByIdAndTaskId(subtaskId, taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Bước", subtaskId));
 
         boolean currentCompleted = Boolean.TRUE.equals(subtask.getIsCompleted());
         boolean newCompleted = !currentCompleted;
@@ -89,9 +87,7 @@ public class SubtaskServiceImpl implements SubtaskService {
 
     @Override
     public List<SubtaskResponse> getSubtasksByTaskId(UUID taskId) {
-        if (!taskRepository.existsById(taskId)) {
-            throw new ResourceNotFoundException("Nhiệm vụ không tồn tại với ID: " + taskId);
-        }
+        ownership.require(taskId);
 
         return subtaskRepository.findByTaskIdOrderByStepOrderAsc(taskId).stream()
                 .map(SubtaskResponse::fromEntity)

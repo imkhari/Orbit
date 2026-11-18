@@ -3,6 +3,7 @@ package com.orbit.service.impl;
 import com.orbit.dto.response.StreakResponse;
 import com.orbit.entity.StreakHistory;
 import com.orbit.entity.User;
+import com.orbit.exception.ResourceNotFoundException;
 import com.orbit.repository.StreakHistoryRepository;
 import com.orbit.repository.UserRepository;
 import com.orbit.service.StreakService;
@@ -179,30 +180,7 @@ public class StreakServiceImpl implements StreakService {
     }
 
     private User resolveUser(UUID userId) {
-        if (userId != null) {
-            return userRepository.findById(userId).orElseGet(this::getOrCreateDemoUser);
-        }
-
-        org.springframework.security.core.Authentication auth =
-            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof User user) {
-            return user;
-        }
-
-        return getOrCreateDemoUser();
-    }
-
-    private User getOrCreateDemoUser() {
-        return userRepository.findByEmail("demo@orbit.app").orElseGet(() ->
-            userRepository.save(User.builder()
-                .email("demo@orbit.app")
-                .displayName("ADHD Explorer")
-                .passwordHash("$2a$10$demoHashPlaceholderForOrbitDemoUser")
-                .currentEnergyLevel(User.EnergyLevel.MEDIUM)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
-                .build()
-            )
-        );
+        return userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("Tài khoản", userId));
     }
 }

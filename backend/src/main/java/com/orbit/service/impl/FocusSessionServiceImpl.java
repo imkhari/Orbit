@@ -5,6 +5,7 @@ import com.orbit.dto.response.FocusSessionResponse;
 import com.orbit.entity.FocusSession;
 import com.orbit.entity.Task;
 import com.orbit.entity.User;
+import com.orbit.exception.ResourceNotFoundException;
 import com.orbit.repository.FocusSessionRepository;
 import com.orbit.repository.TaskRepository;
 import com.orbit.repository.UserRepository;
@@ -39,7 +40,8 @@ public class FocusSessionServiceImpl implements FocusSessionService {
 
         Task task = null;
         if (request.taskId() != null) {
-            task = taskRepository.findById(request.taskId()).orElse(null);
+            task = taskRepository.findByIdAndUserId(request.taskId(), user.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Việc", request.taskId()));
         }
 
         boolean completed = Boolean.TRUE.equals(request.isCompleted());
@@ -83,23 +85,7 @@ public class FocusSessionServiceImpl implements FocusSessionService {
     }
 
     private User resolveUser(UUID userId) {
-        if (userId != null) {
-            return userRepository.findById(userId).orElseGet(this::getOrCreateDemoUser);
-        }
-        return getOrCreateDemoUser();
-    }
-
-    private User getOrCreateDemoUser() {
-        return userRepository.findByEmail("demo@orbit.app").orElseGet(() ->
-            userRepository.save(User.builder()
-                .email("demo@orbit.app")
-                .displayName("ADHD Explorer")
-                .passwordHash("$2a$10$demoHashPlaceholderForOrbitDemoUser")
-                .currentEnergyLevel(User.EnergyLevel.MEDIUM)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
-                .build()
-            )
-        );
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản", userId));
     }
 }

@@ -1,34 +1,40 @@
+import { useLocale } from '../ui/locale';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   Modal,
+  KeyboardAvoidingView,
   TouchableOpacity,
   ScrollView,
   TextInput,
   Platform,
-  Animated,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Task, EnergyLevel, Subtask, AIDecomposeResponse } from '../types';
 import { TaskService } from '../services/api';
+import { useTaskStore } from '../store/useTaskStore';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActionButton, ScreenHeader } from '../ui/Controls';
+import { colors } from '../ui/theme';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 interface ProposedStep {
   id: string;
-  stepOrder: number;
   title: string;
   estimatedMinutes: number;
   energyLevel: EnergyLevel;
   isSelected: boolean;
-  isRecommendedStarter?: boolean;
 }
 
 interface AIDecomposeModalProps {
   visible: boolean;
   task: Task | null;
   onClose: () => void;
-  onApplySubtasks: (taskId: string, subtasks: Subtask[]) => void;
+  onApplySubtasks: (taskId: string, subtasks: Subtask[]) => Promise<Task | null>;
+  onStartFocus: (taskId: string, step?: Subtask) => Promise<boolean>;
+  doingTask: Task | null;
 }
 
 export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
@@ -36,36 +42,18 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
   task,
   onClose,
   onApplySubtasks,
+  onStartFocus,
+  doingTask,
 }) => {
+  const t = useLocale();
   const [steps, setSteps] = useState<ProposedStep[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isApplying, setIsApplying] = useState<boolean>(false);
   const [isFallback, setIsFallback] = useState<boolean>(false);
-  const [reasoningSummary, setReasoningSummary] = useState<string | null>(null);
-
-  // Hiệu ứng thở nhịp nhàng (breathing pulse) 1.2s giúp xoa dịu lo âu giác quan ADHD
-  const pulseAnim = useRef(new Animated.Value(0.35)).current;
-
-  useEffect(() => {
-    if (isLoading) {
-      const pulseLoop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 0.85,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 0.35,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      pulseLoop.start();
-      return () => pulseLoop.stop();
-    }
-  }, [isLoading, pulseAnim]);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'save' | 'start' | null>(null);
+  const [savedTask, setSavedTask] = useState<Task | null>(null);
+  const saving = useRef(false);
 
   // Tự động gọi API AI decompose khi modal mở ra
   useEffect(() => {
@@ -74,80 +62,48 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
       setIsLoading(false);
       setIsApplying(false);
       setIsFallback(false);
-      setReasoningSummary(null);
+      setSaveError(null);
+      setConfirmAction(null);
+      setSavedTask(null);
       return;
     }
 
     let isMounted = true;
     setIsLoading(true);
     setIsFallback(false);
-    setReasoningSummary(null);
+    setSaveError(null);
 
     const fetchDecomposition = async () => {
+      const language = useSettingsStore.getState().language === 'en' ? 'en' : 'vi';
       try {
-        const response: AIDecomposeResponse = await TaskService.decomposeWithAI(task.id);
+        const ready = task.id.startsWith('temp-')
+          ? await Promise.race([
+            useTaskStore.getState().ensureTask(task.id, false),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 400)),
+          ])
+          : task;
         if (!isMounted) return;
-
-        const subtasks = response.suggestedSubtasks || [];
-        const mappedSteps: ProposedStep[] = subtasks.map((s, idx) => ({
-          id: `step-${Date.now()}-${idx}`,
-          stepOrder: s.stepOrder ?? idx + 1,
-          title: s.title,
-          estimatedMinutes: s.estimatedMinutes ?? (idx === 0 ? 5 : 15),
-          energyLevel: s.energyLevel ?? (idx === 0 ? 'LOW' : 'MEDIUM'),
-          isSelected: true,
-          isRecommendedStarter: s.isRecommendedStarter ?? (idx === 0),
-        }));
-
-        setSteps(mappedSteps);
-        setIsFallback(Boolean(response.isFallback));
-        if (response.reasoningSummary) {
-          setReasoningSummary(response.reasoningSummary);
-        }
-      } catch (err: any) {
+        const response: AIDecomposeResponse | null = ready
+          ? await TaskService.decomposeWithAI(ready.id, language).catch(() => null)
+          : null;
         if (!isMounted) return;
-        console.warn('AI Decompose API error, kích hoạt Offline Heuristic Fallback:', err?.message);
-
-        // Heuristic Fallback Engine tuân thủ 4 quy tắc vàng nhận thức ADHD
-        // Bước 1 < 5 phút, các bước tiếp theo <= 20 phút
-        const fallbackSteps: ProposedStep[] = [
-          {
-            id: `fallback-1-${Date.now()}`,
-            stepOrder: 1,
-            title: `Mở tài liệu và viết dàn ý 3 ý chính cho "${task.title}"`,
-            estimatedMinutes: 5,
-            energyLevel: 'LOW',
-            isSelected: true,
-            isRecommendedStarter: true,
-          },
-          {
-            id: `fallback-2-${Date.now()}`,
-            stepOrder: 2,
-            title: 'Thu thập thông tin & tài liệu tham khảo cần thiết',
-            estimatedMinutes: 15,
-            energyLevel: 'MEDIUM',
-            isSelected: true,
-          },
-          {
-            id: `fallback-3-${Date.now()}`,
-            stepOrder: 3,
-            title: 'Thực hiện phần cốt lõi đầu tiên (bản nháp 1)',
-            estimatedMinutes: 20,
-            energyLevel: 'HIGH',
-            isSelected: true,
-          },
-          {
-            id: `fallback-4-${Date.now()}`,
-            stepOrder: 4,
-            title: 'Kiểm tra lại kết quả và định dạng hoàn chỉnh',
-            estimatedMinutes: 10,
-            energyLevel: 'LOW',
-            isSelected: true,
-          },
+        const suggestions = response?.suggestedSubtasks;
+        const fallbackStarter = /slide|thuyết trình/i.test(task.title)
+          ? t("Mở slide và viết 3 ý chính", "Open the slides and write down three main points")
+          : t("Chuẩn bị thứ đầu tiên bạn cần để bắt đầu", "Get the first thing you need to start");
+        const source = suggestions?.length ? suggestions.slice(0, 5) : [
+          { title: fallbackStarter, estimatedMinutes: 3, energyLevel: 'LOW' as const },
+          { title: t("Thực hiện phần đầu tiên của việc này", "Do the first part of the task"), estimatedMinutes: 10, energyLevel: 'LOW' as const },
+          { title: t("Xem lại kết quả và ghi việc cần làm tiếp", "Review what you did and write down what comes next"), estimatedMinutes: 5, energyLevel: 'LOW' as const },
         ];
-
-        setSteps(fallbackSteps);
-        setIsFallback(true);
+        setSteps(source.map((step, index) => ({
+          id: `proposal-${index}`,
+          title: step.title,
+          estimatedMinutes: Math.min(index === 0 ? 4 : 20, Math.max(1, step.estimatedMinutes)),
+          energyLevel: step.energyLevel,
+          isSelected: true,
+        })));
+        setIsFallback(!suggestions?.length || Boolean(response?.isFallback));
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -166,6 +122,9 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    setSavedTask(null);
+    setConfirmAction(null);
+    setSaveError(null);
     setSteps((prev) =>
       prev.map((step) =>
         step.id === id ? { ...step, isSelected: !step.isSelected } : step
@@ -174,484 +133,169 @@ export const AIDecomposeModal: React.FC<AIDecomposeModalProps> = ({
   };
 
   const updateTitle = (id: string, newTitle: string) => {
+    setSavedTask(null);
+    setConfirmAction(null);
+    setSaveError(null);
     setSteps((prev) =>
       prev.map((step) => (step.id === id ? { ...step, title: newTitle } : step))
     );
   };
 
-  const handleApply = async () => {
-    if (!task || isApplying) return;
-    const selected = steps.filter((s) => s.isSelected);
-    if (selected.length === 0) return;
+  const selected = steps.filter((step) => step.isSelected);
+  const originalStarter = selected.find((step) => step.estimatedMinutes < 5) ?? selected[0];
+  const starter = originalStarter?.estimatedMinutes >= 5 ? {
+    ...originalStarter,
+    title: t(`Làm 4 phút đầu của bước này — ${originalStarter.title.trim()}`, `Do the first 4 minutes of this step — ${originalStarter.title.trim()}`),
+    estimatedMinutes: 4,
+  } : originalStarter;
+  const planned = starter ? [starter, ...selected.filter((step) => step.id !== starter.id)] : [];
+  const valid = planned.length > 0 && selected.every((step) => step.title.trim())
+    && planned.every((step) => step.title.trim().length <= 255);
+  const blockedBy = doingTask && doingTask.id !== (savedTask?.id ?? task?.id) ? doingTask : null;
 
-    setIsApplying(true);
-
-    // Haptic feedback: Medium impact gives feeling of micro-accomplishment
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const handleApply = async (action: 'save' | 'start', confirmed = false) => {
+    if (!task || !valid || saving.current) return;
+    if (!savedTask && task.subtasks.length > 0 && !confirmed) {
+      setConfirmAction(action);
+      return;
     }
 
-    const formattedSubtasks: Subtask[] = selected.map((s, idx) => ({
-      id: s.id,
-      taskId: task.id,
-      title: s.title.trim(),
-      estimatedMinutes: s.estimatedMinutes,
-      energyLevel: s.energyLevel,
-      stepOrder: idx + 1,
-      isCompleted: false,
-    }));
-
+    saving.current = true;
+    setIsApplying(true);
+    setConfirmAction(null);
+    setSaveError(null);
     try {
-      await onApplySubtasks(task.id, formattedSubtasks);
-    } finally {
-      setIsApplying(false);
+      const checklist = planned.map((step, index): Subtask => ({
+        id: step.id,
+        taskId: task.id,
+        title: step.title.trim(),
+        estimatedMinutes: step.estimatedMinutes,
+        energyLevel: step.energyLevel,
+        stepOrder: index + 1,
+        isCompleted: false,
+      }));
+      const saved = savedTask ?? await onApplySubtasks(task.id, checklist);
+      if (!saved) {
+        setSaveError(t("Chưa lưu được các bước. Nội dung bạn đã chỉnh vẫn ở đây. Bạn có thể thử lại.", "Could not save the steps. Your edits are still here. Try again."));
+        return;
+      }
+      setSavedTask(saved);
+      const first = saved.subtasks.find((step) => step.stepOrder === 1);
+      if (action === 'start' && (!first || !await onStartFocus(saved.id, first))) {
+        setSaveError(t("Đã lưu các bước. Bạn có thể thử bắt đầu lại.", "Steps saved. Try starting again."));
+        return;
+      }
       onClose();
+    } finally {
+      saving.current = false;
+      setIsApplying(false);
     }
   };
 
-  const selectedCount = steps.filter((s) => s.isSelected).length;
-  const totalMinutes = steps
-    .filter((s) => s.isSelected)
-    .reduce((acc, curr) => acc + curr.estimatedMinutes, 0);
-
   if (!task) return null;
 
+  const canSubmit = valid && !isApplying && !isLoading;
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.sheetContainer}>
-          {/* Pull handle indicator */}
-          <View style={styles.handleBar} />
-
-          {/* Header */}
+    <Modal visible={visible} transparent animationType="none"
+      onRequestClose={() => { if (!saving.current) onClose(); }}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <SafeAreaView style={styles.sheet} edges={['bottom', 'left', 'right']}>
           <View style={styles.header}>
-            <View style={styles.badgeRow}>
-              <Text style={styles.badgeText}>✨ HUMAN-IN-THE-LOOP AI BREAKDOWN</Text>
-              {isFallback && (
-                <View style={styles.fallbackPill}>
-                  <Text style={styles.fallbackPillText}>🛡️ Heuristic Fallback</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.taskTitle} numberOfLines={2}>
-              {task.title}
-            </Text>
-            <Text style={styles.instruction}>
-              AI đã phân rã nhiệm vụ thành các bước ≤ 20 phút (bước 1 ≤ 5 phút khởi động). Bạn có thể chỉnh sửa trực tiếp hoặc bỏ chọn trước khi áp dụng:
-            </Text>
-            {reasoningSummary ? (
-              <Text style={styles.reasoningText}>💡 {reasoningSummary}</Text>
-            ) : null}
+            <ScreenHeader title={t('Chia việc thành các bước', 'Break down task')}
+              onClose={() => { if (!saving.current) onClose(); }} />
+            <Text style={styles.muted} numberOfLines={2}>{task.title}</Text>
           </View>
 
-          {/* Shimmer / Skeleton Loading State */}
-          {isLoading ? (
-            <View style={styles.loadingContainer}>
-              {[1, 2, 3, 4].map((item) => (
-                <Animated.View
-                  key={item}
-                  style={[styles.skeletonStepRow, { opacity: pulseAnim }]}
-                >
-                  <View style={styles.skeletonCheckbox} />
-                  <View style={styles.skeletonContent}>
-                    <View
-                      style={[
-                        styles.skeletonTitleBar,
-                        { width: item === 1 ? '70%' : item === 2 ? '85%' : '60%' },
-                      ]}
-                    />
-                    <View style={styles.skeletonMetaBar} />
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+            {isLoading ? (
+              <>
+                <Text style={styles.muted} accessibilityLiveRegion="polite">{t("Đang chia việc…", "Planning your steps…")}</Text>
+                {[0, 1, 2].map((item) => <View key={item} style={styles.skeleton} />)}
+              </>
+            ) : (
+              <>
+                {starter && (
+                  <View style={styles.preview}>
+                    <Text style={styles.stepLabel}>{t(`Bước đầu tiên · ${starter.estimatedMinutes} phút`, `First step · ${starter.estimatedMinutes} min`)}</Text>
+                    <Text style={styles.previewTitle}>{starter.title.trim()}</Text>
                   </View>
-                </Animated.View>
-              ))}
-
-              <View style={styles.loadingMessageContainer}>
-                <Text style={styles.loadingMessageIcon}>🌌</Text>
-                <Text style={styles.loadingMessageTitle}>
-                  Orbit AI đang suy nghĩ và bẻ nhỏ công việc...
-                </Text>
-                <Text style={styles.loadingMessageSubtitle}>
-                  Bước đầu tiên sẽ luôn là bước mồi nhẹ nhàng dưới 5 phút để bạn dễ dàng bắt đầu!
-                </Text>
-              </View>
-            </View>
-          ) : (
-            /* Steps List */
-            <ScrollView style={styles.stepList} showsVerticalScrollIndicator={false}>
-              {steps.map((step) => (
-                <View
-                  key={step.id}
-                  style={[
-                    styles.stepRow,
-                    !step.isSelected && styles.stepRowDeselected,
-                    step.isRecommendedStarter && styles.stepRowStarter,
-                  ]}
-                >
-                  {/* Checkbox with hitSlop to ensure >= 44x44pt bounding box */}
-                  <TouchableOpacity
-                    style={[
-                      styles.checkbox,
-                      step.isSelected && styles.checkboxChecked,
-                    ]}
-                    onPress={() => toggleSelect(step.id)}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessible={true}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: step.isSelected }}
-                    accessibilityLabel={`Chọn vi bước: ${step.title}`}
-                  >
-                    {step.isSelected ? (
-                      <Text style={styles.checkmark}>✓</Text>
-                    ) : null}
-                  </TouchableOpacity>
-
-                  {/* Title input field (Editable) */}
-                  <View style={styles.titleInputWrapper}>
-                    <TextInput
-                      style={[
-                        styles.stepInput,
-                        !step.isSelected && styles.stepInputDeselected,
-                      ]}
-                      value={step.title}
-                      onChangeText={(val) => updateTitle(step.id, val)}
-                      placeholder="Tiêu đề vi bước..."
-                      placeholderTextColor="#64748B"
-                      accessible={true}
-                      accessibilityLabel="Chỉnh sửa tiêu đề vi bước"
-                    />
-                    <View style={styles.stepMetaRow}>
-                      {step.isRecommendedStarter && (
-                        <View style={styles.starterBadge}>
-                          <Text style={styles.starterBadgeText}>
-                            🌱 Khởi động ≤ 5m
-                          </Text>
-                        </View>
-                      )}
-                      <Text style={styles.stepTimeBadge}>
-                        ⏱️ {step.estimatedMinutes} phút
-                      </Text>
-                      <Text style={styles.stepEnergyBadge}>
-                        {step.energyLevel === 'LOW'
-                          ? '☕ Nhẹ nhàng'
-                          : step.energyLevel === 'MEDIUM'
-                          ? '⚡ Vừa sức'
-                          : '🔥 Sâu'}
-                      </Text>
+                )}
+                <Text style={styles.muted}>{isFallback ? t("Gợi ý nhanh · ", "Quick suggestions · ") : ''}{t("Chạm tên bước để sửa.", "Tap a step name to edit it.")}</Text>
+                {steps.map((step) => (
+                  <View key={step.id} style={styles.step}>
+                    <TouchableOpacity style={styles.checkTarget} onPress={() => toggleSelect(step.id)}
+                      disabled={isApplying} accessibilityRole="checkbox"
+                      accessibilityState={{ checked: step.isSelected, disabled: isApplying }}
+                      accessibilityLabel={t(`Chọn bước · ${step.title}`, `Select step · ${step.title}`)}>
+                      <View style={[styles.box, step.isSelected && styles.boxChecked]}>
+                        {step.isSelected && <Text style={styles.check}>✓</Text>}
+                      </View>
+                    </TouchableOpacity>
+                    <View style={styles.editor}>
+                      <TextInput multiline value={step.title} onChangeText={(value) => updateTitle(step.id, value)}
+                        placeholder={t("Tên bước", "Step name")} placeholderTextColor={colors.muted} editable={!isApplying}
+                        accessibilityLabel={t(`Sửa bước ${steps.indexOf(step) + 1}`, `Edit step ${steps.indexOf(step) + 1}`)} maxLength={255}
+                        style={[styles.input, !step.isSelected && styles.unselected]} />
+                      <Text style={styles.stepLabel}>{step.id === starter?.id ? starter.estimatedMinutes : step.estimatedMinutes} {t('phút', 'min')}</Text>
                     </View>
                   </View>
-                </View>
-              ))}
-            </ScrollView>
-          )}
+                ))}
+              </>
+            )}
+            {blockedBy && (
+              <View style={styles.preview}>
+                <Text style={styles.muted}>{t(`Bạn đang làm “${blockedBy.title}”.`, `You’re working on “${blockedBy.title}”.`)}</Text>
+                <ActionButton label={t('Tiếp tục việc đang làm')} variant="secondary" disabled={isApplying}
+                  onPress={async () => { if (await onStartFocus(blockedBy.id)) onClose(); }} />
+              </View>
+            )}
+          </ScrollView>
 
-          {/* Focus Summary */}
-          {!isLoading && (
-            <View style={styles.summaryBar}>
-              <Text style={styles.summaryText}>
-                Tổng thời gian: <Text style={styles.bold}>{totalMinutes} phút</Text>{' '}
-                ({selectedCount} bước được chọn)
-              </Text>
-            </View>
-          )}
-
-          {/* Action buttons with minHeight >= 48pt */}
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={onClose}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelBtnText}>Hủy bỏ</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.confirmBtn,
-                (selectedCount === 0 || isLoading || isApplying) &&
-                  styles.confirmBtnDisabled,
-              ]}
-              onPress={handleApply}
-              disabled={selectedCount === 0 || isLoading || isApplying}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.confirmBtnText}>
-                {isApplying
-                  ? 'Đang áp dụng...'
-                  : `Áp dụng (${selectedCount}) vi bước`}
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.footer}>
+            {starter && !valid && !isLoading && (
+              <Text style={styles.feedback}>{t("Hãy điền tên cho các bước bạn chọn.", "Name each selected step.")}</Text>
+            )}
+            {saveError && <Text style={styles.feedback} accessibilityLiveRegion="polite">{saveError}</Text>}
+            {confirmAction ? (
+              <>
+                <Text style={styles.feedback} accessibilityLiveRegion="polite">{t("Thay các bước sẽ đặt lại tiến độ đã tick.", "Replacing these steps will reset checklist progress.")}</Text>
+                <ActionButton label={t("Thay các bước", "Replace steps")} onPress={() => void handleApply(confirmAction, true)} />
+                <ActionButton label={t("Giữ các bước cũ", "Keep existing steps")} variant="quiet" onPress={() => setConfirmAction(null)} />
+              </>
+            ) : (
+              <>
+                {!blockedBy && <ActionButton label={isApplying ? t("Đang lưu…", "Saving…") : t('Bắt đầu bước này')}
+                  disabled={!canSubmit} onPress={() => void handleApply('start')} />}
+                <ActionButton label={t("Lưu để làm sau", "Save for later")} variant="quiet" disabled={!canSubmit}
+                  onPress={() => void handleApply('save')} />
+              </>
+            )}
           </View>
-        </View>
-      </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.78)',
-    justifyContent: 'flex-end',
-  },
-  sheetContainer: {
-    backgroundColor: '#1E293B',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '88%',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 32,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  handleBar: {
-    width: 48,
-    height: 5,
-    backgroundColor: '#475569',
-    borderRadius: 3,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  header: {
-    marginBottom: 14,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#38BDF8',
-    letterSpacing: 0.5,
-  },
-  fallbackPill: {
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.3)',
-  },
-  fallbackPillText: {
-    color: '#FBBF24',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  taskTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F8FAFC',
-    marginBottom: 6,
-    lineHeight: 24,
-  },
-  instruction: {
-    fontSize: 13,
-    color: '#94A3B8',
-    lineHeight: 18,
-  },
-  reasoningText: {
-    fontSize: 12,
-    color: '#CBD5E1',
-    marginTop: 6,
-    fontStyle: 'italic',
-  },
-  stepList: {
-    maxHeight: 330,
-    marginBottom: 12,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  stepRowStarter: {
-    borderColor: 'rgba(56, 189, 248, 0.5)',
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-  },
-  stepRowDeselected: {
-    opacity: 0.45,
-  },
-  checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#64748B',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    marginTop: 2,
-  },
-  checkboxChecked: {
-    backgroundColor: '#38BDF8',
-    borderColor: '#38BDF8',
-  },
-  checkmark: {
-    color: '#0F172A',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  titleInputWrapper: {
-    flex: 1,
-  },
-  stepInput: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#F8FAFC',
-    paddingVertical: 4,
-    marginBottom: 6,
-    minHeight: 38, // Improved touch ergonomics
-  },
-  stepInputDeselected: {
-    textDecorationLine: 'line-through',
-    color: '#94A3B8',
-  },
-  stepMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  starterBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  starterBadgeText: {
-    fontSize: 10,
-    color: '#38BDF8',
-    fontWeight: '700',
-  },
-  stepTimeBadge: {
-    fontSize: 11,
-    color: '#38BDF8',
-    fontWeight: '600',
-  },
-  stepEnergyBadge: {
-    fontSize: 11,
-    color: '#FBBF24',
-    fontWeight: '600',
-  },
-  summaryBar: {
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  summaryText: {
-    fontSize: 12,
-    color: '#CBD5E1',
-  },
-  bold: {
-    fontWeight: '700',
-    color: '#38BDF8',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cancelBtn: {
-    flex: 1,
-    backgroundColor: '#334155',
-    minHeight: 48, // WCAG 2.1 AA touch-target >= 44x44 pt
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelBtnText: {
-    color: '#CBD5E1',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  confirmBtn: {
-    flex: 2,
-    backgroundColor: '#38BDF8',
-    minHeight: 48, // WCAG 2.1 AA touch-target >= 44x44 pt
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmBtnDisabled: {
-    backgroundColor: '#475569',
-    opacity: 0.5,
-  },
-  confirmBtnText: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  loadingContainer: {
-    paddingVertical: 10,
-    gap: 10,
-  },
-  skeletonStepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    gap: 12,
-  },
-  skeletonCheckbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
-    backgroundColor: '#334155',
-  },
-  skeletonContent: {
-    flex: 1,
-    gap: 8,
-  },
-  skeletonTitleBar: {
-    height: 14,
-    backgroundColor: '#334155',
-    borderRadius: 4,
-  },
-  skeletonMetaBar: {
-    width: 90,
-    height: 10,
-    backgroundColor: '#334155',
-    borderRadius: 3,
-  },
-  loadingMessageContainer: {
-    alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-  },
-  loadingMessageIcon: {
-    fontSize: 26,
-    marginBottom: 6,
-  },
-  loadingMessageTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  loadingMessageSubtitle: {
-    fontSize: 11,
-    color: '#94A3B8',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(2, 6, 23, 0.72)' },
+  sheet: { maxHeight: '96%', backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8, gap: 8 },
+  muted: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  scroll: { flexGrow: 0, flexShrink: 1 },
+  body: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+  preview: { backgroundColor: colors.canvas, padding: 12, borderRadius: 12, gap: 4 },
+  previewTitle: { color: colors.text, fontSize: 17, lineHeight: 24, fontWeight: '700' },
+  step: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderTopWidth: 1, borderColor: colors.border, paddingVertical: 4 },
+  checkTarget: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  box: { width: 22, height: 22, borderRadius: 5, borderWidth: 1, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center' },
+  boxChecked: { backgroundColor: colors.accent, borderColor: colors.accent },
+  check: { color: colors.accentInk, fontSize: 14, fontWeight: '700' },
+  editor: { flex: 1 },
+  input: { minHeight: 44, color: colors.text, fontSize: 15, lineHeight: 21, paddingVertical: 8 },
+  unselected: { color: colors.muted, textDecorationLine: 'line-through' },
+  stepLabel: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+  footer: { borderTopWidth: 1, borderColor: colors.border, paddingHorizontal: 16, paddingTop: 8, gap: 4 },
+  feedback: { color: colors.warning, fontSize: 14, lineHeight: 20 },
+  skeleton: { height: 44, borderRadius: 10, backgroundColor: colors.border },
 });

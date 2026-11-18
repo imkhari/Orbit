@@ -14,7 +14,7 @@ public interface AuthService {
     /**
      * Đăng ký tài khoản người dùng mới.
      */
-    AuthResponse register(RegisterRequest request);
+    UserResponse register(RegisterRequest request);
 
     /**
      * Đăng nhập người dùng bằng email và mật khẩu.

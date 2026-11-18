@@ -9,7 +9,7 @@ import com.orbit.entity.User;
 import com.orbit.exception.ResourceNotFoundException;
 import com.orbit.exception.WipLimitExceededException;
 import com.orbit.repository.TaskRepository;
-import com.orbit.repository.UserRepository;
+import com.orbit.service.TaskOwnership;
 import com.orbit.service.StreakService;
 import com.orbit.service.TaskService;
 import com.orbit.service.engine.EnergyPrioritizationEngine;
@@ -29,7 +29,7 @@ import java.util.UUID;
 public class TaskServiceImpl implements TaskService {
 
     private final TaskRepository taskRepository;
-    private final UserRepository userRepository;
+    private final TaskOwnership ownership;
     private final StreakService streakService;
     private final EnergyPrioritizationEngine energyPrioritizationEngine;
     private final com.orbit.repository.BoardRepository boardRepository;
@@ -40,7 +40,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse createTask(CreateTaskRequest request) {
         log.info("Creating new task with energy: {}", request.energyRequiredOrDefault());
 
-        User user = resolveUser(request.userId());
+        User user = ownership.account();
 
         String rawTitle = request.title().trim();
         String title = rawTitle;
@@ -67,13 +67,14 @@ public class TaskServiceImpl implements TaskService {
         com.orbit.entity.Board board = null;
         if (boardRepository != null) {
             if (request.boardId() != null) {
-                board = boardRepository.findById(request.boardId()).orElse(null);
+                board = boardRepository.findByIdAndUserId(request.boardId(), user.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Bảng", request.boardId()));
             }
             if (board == null && boardService != null) {
                 board = boardRepository.findFirstByUserIdAndIsArchivedFalseOrderByPositionAsc(user.getId())
                     .orElseGet(() -> {
                         var defaultBoards = boardService.getUserBoards(user.getId());
-                        return !defaultBoards.isEmpty() ? boardRepository.findById(defaultBoards.get(0).id()).orElse(null) : null;
+                        return !defaultBoards.isEmpty() ? boardRepository.findByIdAndUserId(defaultBoards.get(0).id(), user.getId()).orElse(null) : null;
                     });
             }
         }
@@ -92,7 +93,7 @@ public class TaskServiceImpl implements TaskService {
             .build();
 
         Task saved = taskRepository.save(task);
-        log.info("Task created successfully with ID: '{}' (Title: '{}')", saved.getId(), saved.getTitle());
+        log.info("Task created successfully with ID: {}", saved.getId());
         return TaskResponse.fromEntity(saved);
     }
 
@@ -101,8 +102,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTaskStatus(UUID taskId, UpdateTaskStatusRequest request) {
         log.info("Updating status for task ID: {} to {}", taskId, request.status());
 
-        Task task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new ResourceNotFoundException("Nhiệm vụ", taskId));
+        Task task = ownership.require(taskId);
 
         Task.TaskStatus targetStatus = request.status();
 
@@ -142,8 +142,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse updateTask(UUID taskId, UpdateTaskRequest request) {
         log.info("Updating task details for ID: {}", taskId);
 
-        Task task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new ResourceNotFoundException("Nhiệm vụ", taskId));
+        Task task = ownership.require(taskId);
 
         if (request.title() != null && !request.title().isBlank()) {
             String rawTitle = request.title().trim();
@@ -170,7 +169,9 @@ public class TaskServiceImpl implements TaskService {
             task.setDeadline(request.deadline());
         }
         if (request.boardId() != null) {
-            boardRepository.findById(request.boardId()).ifPresent(task::setBoard);
+            var board = boardRepository.findByIdAndUserId(request.boardId(), task.getUser().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Bảng", request.boardId()));
+            task.setBoard(board);
         }
 
         Task saved = taskRepository.save(task);
@@ -180,85 +181,66 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     public TaskResponse getTaskById(UUID taskId) {
-        return taskRepository.findById(taskId)
-            .map(task -> {
-                double pScore = energyPrioritizationEngine.calculatePriorityScore(task, task.getEnergyRequired(), Instant.now());
-                boolean overdue = energyPrioritizationEngine.isOverdue(task, Instant.now());
-                boolean dimmed = energyPrioritizationEngine.isDimmed(task, task.getEnergyRequired());
-                return TaskResponse.fromEntity(task, pScore, overdue, dimmed);
-            })
-            .orElseThrow(() -> new ResourceNotFoundException("Nhiệm vụ", taskId));
+        Task task = ownership.require(taskId);
+        Instant now = Instant.now();
+        double score = energyPrioritizationEngine.calculatePriorityScore(task, task.getEnergyRequired(), now);
+        boolean overdue = energyPrioritizationEngine.isOverdue(task, now);
+        boolean dimmed = energyPrioritizationEngine.isDimmed(task, task.getEnergyRequired());
+        return TaskResponse.fromEntity(task, score, overdue, dimmed);
     }
 
     @Override
     public List<TaskResponse> getAllTasks() {
-        List<Task> tasks = taskRepository.findAllByOrderByCreatedAtDesc();
-        return energyPrioritizationEngine.prioritizeAndMap(tasks, null, false);
+        return getTasks(null, null, false);
     }
 
     @Override
     public List<TaskResponse> getTasksByStatus(Task.TaskStatus status) {
-        List<Task> tasks = taskRepository.findByStatusOrderByPositionAsc(status);
-        return energyPrioritizationEngine.prioritizeAndMap(tasks, null, false);
+        return getTasks(status, null, false);
     }
 
     @Override
     public List<TaskResponse> getTasks(Task.TaskStatus status, Task.EnergyRequirement userEnergy, Boolean sortByPriority) {
-        List<Task> rawTasks = (status != null)
-                ? taskRepository.findByStatusOrderByPositionAsc(status)
-                : taskRepository.findAllByOrderByCreatedAtDesc();
-
+        UUID accountId = ownership.account().getId();
+        List<Task> rawTasks = status != null
+                ? taskRepository.findByUserIdAndStatusOrderByPositionAsc(accountId, status)
+                : taskRepository.findByUserIdOrderByCreatedAtDesc(accountId);
         return energyPrioritizationEngine.prioritizeAndMap(rawTasks, userEnergy, Boolean.TRUE.equals(sortByPriority));
     }
 
     @Override
     public List<TaskResponse> getTasksByBoard(UUID boardId) {
-        return taskRepository.findByBoardIdOrderByPositionAsc(boardId).stream()
+        return taskRepository.findByUserIdAndBoardIdOrderByPositionAsc(ownership.account().getId(), boardId)
+            .stream()
             .map(TaskResponse::fromEntity)
             .toList();
     }
 
     @Override
     public List<TaskResponse> getTasksByBoardAndStatus(UUID boardId, Task.TaskStatus status) {
-        return taskRepository.findByBoardIdAndStatusOrderByPositionAsc(boardId, status).stream()
+        return taskRepository.findByUserIdAndBoardIdAndStatusOrderByPositionAsc(ownership.account().getId(), boardId, status)
+            .stream()
             .map(TaskResponse::fromEntity)
             .toList();
     }
 
     @Override
     public com.orbit.dto.response.RescueTaskResponse recommendRescueTask(com.orbit.dto.request.RescueTaskRequest request) {
-        User user = resolveUser(null);
+        User user = ownership.account();
         Task.EnergyRequirement userEnergy = request != null ? request.currentEnergyOrDefault() : Task.EnergyRequirement.MEDIUM;
         int availableMinutes = request != null ? request.availableMinutesOrDefault() : 25;
 
         log.info("Computing ADHD Analysis Paralysis Rescue for user ID: {} (Energy: {}, Available: {}m)",
                 user.getId(), userEnergy, availableMinutes);
 
-        // 1. Tìm các candidate tasks từ TODO và BACKLOG
-        List<Task> candidates;
-        if (request != null && request.boardId() != null) {
-            candidates = taskRepository.findByBoardIdOrderByPositionAsc(request.boardId()).stream()
-                .filter(t -> t.getStatus() == Task.TaskStatus.TODO || t.getStatus() == Task.TaskStatus.BACKLOG)
-                .toList();
-        } else {
-            candidates = taskRepository.findByUserIdOrderByPositionAsc(user.getId()).stream()
-                .filter(t -> t.getStatus() == Task.TaskStatus.TODO || t.getStatus() == Task.TaskStatus.BACKLOG)
-                .toList();
-        }
-
-        // Nếu người dùng chưa có task riêng, tìm trong toàn bộ task chưa hoàn thành
-        if (candidates.isEmpty()) {
-            candidates = taskRepository.findAllByOrderByCreatedAtDesc().stream()
-                .filter(t -> t.getStatus() == Task.TaskStatus.TODO || t.getStatus() == Task.TaskStatus.BACKLOG)
-                .toList();
-        }
+        UUID boardId = request != null ? request.boardId() : null;
+        List<Task> candidates = taskRepository.findByUserIdOrderByPositionAsc(user.getId()).stream()
+            .filter(t -> t.getStatus() == Task.TaskStatus.TODO || t.getStatus() == Task.TaskStatus.BACKLOG)
+            .filter(t -> boardId == null || (t.getBoard() != null && boardId.equals(t.getBoard().getId())))
+            .toList();
 
         if (candidates.isEmpty()) {
-            // Kiểm tra xem có task nào đang nằm ở DOING không
-            java.util.Optional<Task> activeDoing = taskRepository.findFirstByUserIdAndStatus(user.getId(), Task.TaskStatus.DOING);
-            if (activeDoing.isEmpty()) {
-                activeDoing = taskRepository.findFirstByStatus(Task.TaskStatus.DOING);
-            }
+            var activeDoing = taskRepository.findFirstByUserIdAndStatus(user.getId(), Task.TaskStatus.DOING);
             if (activeDoing.isPresent()) {
                 Task doingTask = activeDoing.get();
                 com.orbit.entity.Subtask starter = getOrFindStarterSubtask(doingTask);
@@ -337,17 +319,22 @@ public class TaskServiceImpl implements TaskService {
     }
 
     private com.orbit.entity.Subtask getOrFindStarterSubtask(Task task) {
-        if (task.getSubtasks() != null && !task.getSubtasks().isEmpty()) {
-            return task.getSubtasks().stream()
+        if (task.getSubtasks() != null) {
+            var existing = task.getSubtasks().stream()
                 .filter(s -> !Boolean.TRUE.equals(s.getIsCompleted()))
-                .min(java.util.Comparator.comparingInt(s -> s.getStepOrder() != null ? s.getStepOrder() : 999))
-                .orElse(task.getSubtasks().get(0));
+                .filter(s -> s.getEstimatedMinutes() != null
+                    && s.getEstimatedMinutes() >= 1 && s.getEstimatedMinutes() < 5)
+                .min(java.util.Comparator.comparingInt(s -> s.getStepOrder() != null ? s.getStepOrder() : 999));
+
+            if (existing.isPresent()) {
+                return existing.get();
+            }
         }
         return com.orbit.entity.Subtask.builder()
             .task(task)
-            .title("Mở tài liệu và đọc lướt 2 phút để lấy đà")
+            .title("Chuẩn bị thứ đầu tiên bạn cần để bắt đầu việc này")
             .estimatedMinutes(3)
-            .energyLevel(task.getEnergyRequired())
+            .energyLevel(Task.EnergyRequirement.LOW)
             .stepOrder(1)
             .isCompleted(false)
             .build();
@@ -356,35 +343,7 @@ public class TaskServiceImpl implements TaskService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteTask(UUID taskId) {
-        if (!taskRepository.existsById(taskId)) {
-            throw new ResourceNotFoundException("Nhiệm vụ", taskId);
-        }
-        taskRepository.deleteById(taskId);
+        taskRepository.delete(ownership.require(taskId));
         log.info("Deleted task ID: {}", taskId);
-    }
-
-    private User resolveUser(UUID userId) {
-        if (userId != null) {
-            return userRepository.findById(userId).orElse(null);
-        }
-
-        org.springframework.security.core.Authentication auth =
-            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof User user) {
-            return user;
-        }
-
-        // Tạo hoặc lấy Demo User mặc định để bảo toàn khóa ngoại user_id
-        return userRepository.findByEmail("demo@orbit.app").orElseGet(() ->
-            userRepository.save(User.builder()
-                .email("demo@orbit.app")
-                .displayName("ADHD Explorer")
-                .passwordHash("$2a$10$demoHashPlaceholderForOrbitDemoUser")
-                .currentEnergyLevel(User.EnergyLevel.MEDIUM)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
-                .build()
-            )
-        );
     }
 }

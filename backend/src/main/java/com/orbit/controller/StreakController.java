@@ -1,5 +1,6 @@
 package com.orbit.controller;
 
+import com.orbit.security.CurrentAccount;
 import com.orbit.dto.response.ApiResponse;
 import com.orbit.dto.response.StreakResponse;
 import com.orbit.service.StreakService;
@@ -24,9 +25,8 @@ public class StreakController {
      * và điểm kinh nghiệm (XP) của người dùng hiện tại.
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<StreakResponse>> getMyStreak(
-            @RequestParam(required = false) UUID userId
-    ) {
+    public ResponseEntity<ApiResponse<StreakResponse>> getMyStreak() {
+        UUID userId = CurrentAccount.require().getId();
         log.info("REST request to get streak status for user ID: {}", userId);
         StreakResponse response = streakService.getUserStreak(userId);
         return ResponseEntity.ok(ApiResponse.ok(response, response.gentleMessage()));

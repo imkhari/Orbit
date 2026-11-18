@@ -14,6 +14,8 @@ public interface BoardService {
      */
     List<BoardResponse> getUserBoards(UUID userId);
 
+    List<BoardResponse> getUserBoards(UUID userId, boolean includeArchived);
+
     /**
      * Lấy thông tin chi tiết một bảng theo ID.
      */

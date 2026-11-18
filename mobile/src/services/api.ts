@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { CanceledError, isAxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
 import {
   Task,
@@ -50,24 +50,54 @@ export const apiClient = axios.create({
   },
 });
 
-// Request interceptor: tự động gắn Timezone header và JWT Bearer Token
-apiClient.interceptors.request.use((config) => {
-  try {
-    // 1. Gắn Timezone client để bảo vệ chuỗi ngày Streak theo giờ địa phương
-    const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Ho_Chi_Minh';
-    config.headers['X-Timezone-Offset'] = clientTz;
+type SessionRequest = InternalAxiosRequestConfig & { orbitRevision?: number; orbitRetried?: boolean };
+const publicAuthPaths = new Set(['/auth/login', '/auth/register', '/auth/refresh']);
 
-    // 2. Gắn JWT Bearer token nếu đã đăng nhập
-    const { useAuthStore } = require('../store/useAuthStore');
-    const token = useAuthStore.getState()?.token;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-  } catch {
-    // ignore
+// Resolve at request time because the auth store also uses this API client.
+const authStore = () => (require('../store/useAuthStore') as typeof import('../store/useAuthStore')).useAuthStore;
+
+apiClient.interceptors.request.use((config: SessionRequest) => {
+  const session = authStore().getState();
+  if (config.orbitRevision !== undefined && config.orbitRevision !== session.sessionRevision) {
+    throw new CanceledError('Orbit account changed');
+  }
+  config.orbitRevision = session.sessionRevision;
+  config.headers.set('X-Timezone-Offset', Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Ho_Chi_Minh');
+  if (session.token && !publicAuthPaths.has(config.url ?? '')) {
+    config.headers.set('Authorization', `Bearer ${session.token}`);
+  } else {
+    config.headers.delete('Authorization');
   }
   return config;
-});
+}, (error: unknown) => { throw error; }, { synchronous: true });
+
+apiClient.interceptors.response.use(
+  (response) => {
+    if ((response.config as SessionRequest).orbitRevision !== authStore().getState().sessionRevision) {
+      throw new CanceledError('Orbit account changed');
+    }
+    return response;
+  },
+  async (error: unknown) => {
+    if (!isAxiosError(error) || !error.config) throw error;
+    const config = error.config as SessionRequest;
+    const revision = config.orbitRevision;
+    const session = authStore().getState();
+    if (revision !== session.sessionRevision) throw new CanceledError('Orbit account changed');
+    if (error.response?.status !== 401 || publicAuthPaths.has(config.url ?? '')) throw error;
+    if (config.orbitRetried || !session.refreshToken) {
+      session.requireSignIn();
+      throw error;
+    }
+
+    const alreadyRefreshed = session.token && config.headers.get('Authorization') !== `Bearer ${session.token}`;
+    if (alreadyRefreshed || await session.refreshSession(session.sessionRevision)) {
+      config.orbitRetried = true;
+      return apiClient.request(config);
+    }
+    throw error;
+  }
+);
 
 /**
  * Hàm trợ giúp chuyển đổi TaskResponse từ Backend Spring Boot sang Task domain model trên Mobile.
@@ -144,13 +174,13 @@ export const TaskService = {
   /**
    * Giải cứu trạng thái tê liệt nhận thức (POST /api/v1/tasks/rescue)
    */
-  getRescueRecommendation: async (request?: RescueTaskRequest): Promise<RescueTaskResponse> => {
+  getRescueRecommendation: async (request?: RescueTaskRequest): Promise<RescueTaskResponse | null> => {
     const response = await apiClient.post<ApiResponse<RescueTaskResponse> | RescueTaskResponse>(
       '/tasks/rescue',
       request || {}
     );
 
-    return (response.data as ApiResponse<RescueTaskResponse>)?.data ?? (response.data as RescueTaskResponse);
+    return 'success' in response.data ? response.data.data ?? null : response.data;
   },
 
   /**
@@ -233,9 +263,11 @@ export const TaskService = {
   /**
    * AI Task Decomposition: Yêu cầu AI Gemini bẻ nhỏ việc lớn (POST /api/v1/tasks/{id}/ai-decompose)
    */
-  decomposeWithAI: async (taskId: string): Promise<AIDecomposeResponse> => {
+  decomposeWithAI: async (taskId: string, language: 'vi' | 'en'): Promise<AIDecomposeResponse> => {
     const response = await apiClient.post<ApiResponse<AIDecomposeResponse> | AIDecomposeResponse>(
-      `/tasks/${taskId}/ai-decompose`
+      `/tasks/${taskId}/ai-decompose`,
+      undefined,
+      { timeout: 3500, params: { language } }
     );
 
     return (response.data as ApiResponse<AIDecomposeResponse>)?.data ?? (response.data as AIDecomposeResponse);
@@ -272,24 +304,8 @@ export const TaskService = {
 
     const item: TaskResponse = (response.data as ApiResponse<TaskResponse>)?.data ?? (response.data as TaskResponse);
 
-    // Cố gắng lấy danh sách subtasks thực tế vừa tạo trên server (có UUID chuẩn)
-    let savedSubtasks: Subtask[] = [];
-    try {
-      savedSubtasks = await TaskService.getSubtasks(taskId);
-    } catch {
-      savedSubtasks = subtasks.map((s, idx) => ({
-        id: s.id || `subtask-${Date.now()}-${idx}`,
-        taskId,
-        title: s.title,
-        estimatedMinutes: s.estimatedMinutes ?? 15,
-        energyLevel: s.energyLevel ?? 'LOW',
-        stepOrder: s.stepOrder ?? idx + 1,
-        isCompleted: Boolean(s.isCompleted),
-      }));
-    }
-
-    const task = mapTaskResponseToTask(item, savedSubtasks);
-    return { task, subtasks: savedSubtasks };
+    const task = mapTaskResponseToTask(item);
+    return { task, subtasks: task.subtasks };
   },
 
   /**
@@ -335,12 +351,8 @@ export const AuthService = {
   /**
    * Đăng ký tài khoản người dùng mới (POST /api/v1/auth/register)
    */
-  register: async (req: RegisterRequest): Promise<AuthResponse> => {
-    const response = await apiClient.post<ApiResponse<AuthResponse> | AuthResponse>(
-      '/auth/register',
-      req
-    );
-    return (response.data as ApiResponse<AuthResponse>)?.data ?? (response.data as AuthResponse);
+  register: async (req: RegisterRequest): Promise<void> => {
+    await apiClient.post('/auth/register', req);
   },
 
   /**
@@ -389,10 +401,12 @@ export const AuthService = {
 
 export const BoardService = {
   /**
-   * Lấy danh sách các bảng hoạt động của người dùng (GET /api/v1/boards)
+   * Tải thông tin cả bảng đang hoạt động và bảng lưu trữ của tài khoản.
    */
   getBoards: async (): Promise<BoardResponse[]> => {
-    const response = await apiClient.get<ApiResponse<BoardResponse[]> | BoardResponse[]>('/boards');
+    const response = await apiClient.get<ApiResponse<BoardResponse[]> | BoardResponse[]>('/boards', {
+      params: { includeArchived: true },
+    });
     const rawList: BoardResponse[] = Array.isArray(response.data)
       ? response.data
       : (response.data as ApiResponse<BoardResponse[]>)?.data ?? [];

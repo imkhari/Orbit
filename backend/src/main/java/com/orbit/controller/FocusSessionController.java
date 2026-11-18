@@ -1,5 +1,6 @@
 package com.orbit.controller;
 
+import com.orbit.security.CurrentAccount;
 import com.orbit.dto.request.LogFocusSessionRequest;
 import com.orbit.dto.response.ApiResponse;
 import com.orbit.dto.response.FocusSessionResponse;
@@ -28,9 +29,9 @@ public class FocusSessionController {
      */
     @PostMapping
     public ResponseEntity<ApiResponse<FocusSessionResponse>> logFocusSession(
-            @RequestParam(required = false) UUID userId,
             @Valid @RequestBody LogFocusSessionRequest request
     ) {
+        UUID userId = CurrentAccount.require().getId();
         log.info("REST request to log focus session: {} mins for user ID: {}", request.durationMinutes(), userId);
         FocusSessionResponse response = focusSessionService.logSession(userId, request);
         String message = response.earnedXp() > 0
@@ -43,9 +44,8 @@ public class FocusSessionController {
      * Lấy danh sách các phiên tập trung Pomodoro đã hoàn thành trong ngày hôm nay.
      */
     @GetMapping("/today")
-    public ResponseEntity<ApiResponse<List<FocusSessionResponse>>> getTodaySessions(
-            @RequestParam(required = false) UUID userId
-    ) {
+    public ResponseEntity<ApiResponse<List<FocusSessionResponse>>> getTodaySessions() {
+        UUID userId = CurrentAccount.require().getId();
         log.info("REST request to get today's focus sessions for user ID: {}", userId);
         List<FocusSessionResponse> sessions = focusSessionService.getTodaySessions(userId);
         return ResponseEntity.ok(ApiResponse.ok(sessions, "Lấy danh sách phiên tập trung trong ngày thành công"));

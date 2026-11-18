@@ -13,8 +13,6 @@ import com.orbit.repository.UserRepository;
 import com.orbit.service.BoardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +36,12 @@ public class BoardServiceImpl implements BoardService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public List<BoardResponse> getUserBoards(UUID userId) {
+        return getUserBoards(userId, false);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<BoardResponse> getUserBoards(UUID userId, boolean includeArchived) {
         User user = resolveUser(userId);
 
         List<Board> boards = boardRepository.findByUserIdAndIsArchivedFalseOrderByPositionAsc(user.getId());
@@ -46,6 +50,8 @@ public class BoardServiceImpl implements BoardService {
         if (boards.isEmpty()) {
             boards = initializeDefaultBoards(user);
         }
+
+        if (includeArchived) boards = boardRepository.findByUserIdOrderByPositionAsc(user.getId());
 
         return boards.stream()
             .map(this::mapToBoardResponse)
@@ -204,29 +210,7 @@ public class BoardServiceImpl implements BoardService {
     }
 
     private User resolveUser(UUID userId) {
-        if (userId != null) {
-            return userRepository.findById(userId).orElseGet(this::getOrCreateDemoUser);
-        }
-
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof User user) {
-            return user;
-        }
-
-        return getOrCreateDemoUser();
-    }
-
-    private User getOrCreateDemoUser() {
-        return userRepository.findByEmail("demo@orbit.app").orElseGet(() ->
-            userRepository.save(User.builder()
-                .email("demo@orbit.app")
-                .displayName("ADHD Explorer")
-                .passwordHash("$2a$10$demoHashPlaceholderForOrbitDemoUser")
-                .currentEnergyLevel(User.EnergyLevel.MEDIUM)
-                .createdAt(Instant.now())
-                .updatedAt(Instant.now())
-                .build()
-            )
-        );
+        return userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("Tài khoản", userId));
     }
 }

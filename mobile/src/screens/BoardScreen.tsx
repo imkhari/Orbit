@@ -1,916 +1,177 @@
-import React, { useState, useMemo } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  SafeAreaView,
-  FlatList,
-  TouchableOpacity,
-  Modal,
-  Platform,
-} from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { Task, TaskStatus, EnergyLevel, Subtask } from '../types';
-import { StreakState } from '../store/useTaskStore';
-import { TaskCard } from '../components/TaskCard';
-import { QuickCaptureBar } from '../components/QuickCaptureBar';
+import React, { useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AIDecomposeModal } from '../components/AIDecomposeModal';
-import { TaskDetailModal } from '../components/TaskDetailModal';
-import { EnergyFilterWidget, EnergyFilterType } from '../components/EnergyFilterWidget';
 import { BoardSwitcherModal } from '../components/BoardSwitcherModal';
-import { RescueModal } from '../components/RescueModal';
-import { DopamineCelebration } from '../components/DopamineCelebration';
+import { QuickCaptureBar } from '../components/QuickCaptureBar';
+import { TaskCard } from '../components/TaskCard';
+import { TaskDetailModal } from '../components/TaskDetailModal';
 import { useBoardStore } from '../store/useBoardStore';
+import { useTaskStore } from '../store/useTaskStore';
+import { EnergyLevel, Subtask, Task, TaskStatus } from '../types';
+import { ChoiceSheet, ScreenHeader } from '../ui/Controls';
+import { useEnergyLabels, useLocale } from '../ui/locale';
+import { OrbitIcon } from '../ui/OrbitIcon';
+import { colors, energyLevels } from '../ui/theme';
 
-export interface BoardScreenProps {
+interface BoardScreenProps {
   tasks: Task[];
-  streak?: StreakState;
-  user?: import('../types').UserProfile | null;
-  onMoveTask: (taskId: string, targetStatus: TaskStatus) => void | Promise<boolean> | boolean;
+  onMoveTask: (id: string, status: TaskStatus) => Promise<boolean>;
   onQuickAdd: (title: string, energy: EnergyLevel, description?: string, boardId?: string) => void;
-  onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
-  onDeleteTask?: (taskId: string) => void;
-  onApplySubtasks: (taskId: string, newSubtasks: Subtask[]) => void;
-  onToggleSubtask?: (taskId: string, subtaskId: string) => void;
-  onNavigateFocus?: () => void;
-  onFocusTask?: (task: Task) => void;
-  onNavigateAuth?: () => void;
-  onNavigateSettings?: () => void;
+  onUpdateTask: (id: string, updates: Partial<Task>) => Promise<boolean>;
+  onDeleteTask: (id: string) => Promise<void>;
+  onApplySubtasks: (id: string, steps: Subtask[]) => Promise<Task | null>;
+  onToggleSubtask: (id: string, stepId: string) => Promise<boolean>;
+  onFocusTask: (id: string, step?: Subtask) => Promise<boolean>;
   rollbackTaskId?: string | null;
-  isLoading?: boolean;
+  view: BoardView;
+  onViewChange: (view: BoardView) => void;
 }
 
-export const BoardScreen: React.FC<BoardScreenProps> = ({
-  tasks,
-  streak = {
-    currentStreak: 5,
-    longestStreak: 5,
-    freezeCredits: 2,
-    streakState: 'ACTIVE',
-    totalXp: 150,
-    currentLevel: 1,
-    isFrozenToday: false,
-    gentleMessage: 'Mỗi bước nhỏ đều tạo nên bước nhảy lớn 🌿',
-  },
-  user,
-  onMoveTask,
-  onQuickAdd,
-  onUpdateTask,
-  onDeleteTask,
-  onApplySubtasks,
-  onToggleSubtask,
-  onNavigateFocus,
-  onFocusTask,
-  onNavigateAuth,
-  onNavigateSettings,
-  rollbackTaskId: propRollbackTaskId,
-  isLoading,
-}) => {
-  const [activeColumn, setActiveColumn] = useState<TaskStatus>('TODO');
-  const [decomposingTask, setDecomposingTask] = useState<Task | null>(null);
-  const [selectedDetailTaskId, setSelectedDetailTaskId] = useState<string | null>(null);
-  const [selectedEnergy, setSelectedEnergy] = useState<EnergyFilterType>('ALL');
-  const [showStreakModal, setShowStreakModal] = useState<boolean>(false);
-  const [showBoardSwitcher, setShowBoardSwitcher] = useState<boolean>(false);
-  const [showRescueModal, setShowRescueModal] = useState<boolean>(false);
-  const [celebrationState, setCelebrationState] = useState<{
-    visible: boolean;
-    message: string;
-    xp: number;
-  }>({
-    visible: false,
-    message: '',
-    xp: 10,
-  });
+type Column = 'WAITING' | 'DOING' | 'DONE';
+type Filter = EnergyLevel | 'ALL';
+export type BoardView = { column: Column; filter: Filter };
+const isInColumn = (task: Task, column: Column) => column === 'WAITING'
+  ? task.status === 'BACKLOG' || task.status === 'TODO' : task.status === column;
 
-  // Zustand Board Store
-  const { boards, activeBoardId } = useBoardStore();
-
-  const activeBoard = useMemo(() => {
-    return boards.find((b) => b.id === activeBoardId) || boards[0] || null;
-  }, [boards, activeBoardId]);
-
-  // Lọc tác vụ theo board đang được chọn
-  const boardFilteredTasks = useMemo(() => {
-    if (!activeBoardId) return tasks;
-    const isFirstActiveBoard = boards.filter((b) => !b.isArchived)[0]?.id === activeBoardId;
-    return tasks.filter((t) => {
-      if (t.boardId === activeBoardId) return true;
-      if (isFirstActiveBoard && (!t.boardId || t.boardId === 'board-main')) return true;
-      return false;
-    });
-  }, [tasks, activeBoardId, boards]);
-
-  // Sync selected task with live tasks in store
-  const selectedDetailTask = selectedDetailTaskId
-    ? tasks.find((t) => t.id === selectedDetailTaskId) || null
-    : null;
-
-  // Task movement with WIP=1 Spring Physics & Haptics delegation to useTaskStore
-  const handleTaskMovement = (taskId: string, targetStatus: TaskStatus) => {
-    if (targetStatus === 'DONE') {
-      setCelebrationState({
-        visible: true,
-        message: 'Hoàn thành nhiệm vụ!',
-        xp: 10,
-      });
-    } else if (targetStatus === 'TODO') {
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    }
-    onMoveTask(taskId, targetStatus);
-  };
-
-  const handleToggleSubtaskWrapper = (taskId: string, subtaskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
-    const subtask = task?.subtasks?.find((s) => s.id === subtaskId);
-    if (subtask && !subtask.isCompleted) {
-      setCelebrationState({
-        visible: true,
-        message: 'Dopamine Ignition!',
-        xp: 5,
-      });
-    }
-    onToggleSubtask?.(taskId, subtaskId);
-  };
-
-  // Quick Capture wraps parent callback and switches to BACKLOG column
-  const handleQuickAdd = (title: string, energy: EnergyLevel, description?: string) => {
-    onQuickAdd(title, energy, description, activeBoardId || undefined);
-    setActiveColumn('BACKLOG');
-  };
-
-  const handleFocusTaskAction = (task: Task) => {
-    if (onFocusTask) {
-      onFocusTask(task);
-    } else if (onNavigateFocus) {
-      onNavigateFocus();
-    }
-  };
-
-  const handleOpenStreakModal = () => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setShowStreakModal(true);
-  };
-
-  // Column definitions - Concise & responsive on mobile screens
-  const columns: Array<{ status: TaskStatus; label: string; count: number }> = [
-    {
-      status: 'BACKLOG',
-      label: 'Backlog',
-      count: boardFilteredTasks.filter((t) => t.status === 'BACKLOG').length,
-    },
-    {
-      status: 'TODO',
-      label: 'Cần làm',
-      count: boardFilteredTasks.filter((t) => t.status === 'TODO').length,
-    },
-    {
-      status: 'DOING',
-      label: 'Đang làm',
-      count: boardFilteredTasks.filter((t) => t.status === 'DOING').length,
-    },
-    {
-      status: 'DONE',
-      label: 'Đã xong',
-      count: boardFilteredTasks.filter((t) => t.status === 'DONE').length,
-    },
+export function BoardScreen({
+  tasks, onMoveTask, onQuickAdd, onUpdateTask, onDeleteTask,
+  onApplySubtasks, onToggleSubtask, onFocusTask, rollbackTaskId, view, onViewChange,
+}: BoardScreenProps) {
+  const t = useLocale();
+  const columns: { id: Column; label: string; empty: string }[] = [
+    { id: 'WAITING', label: t('Chờ làm'), empty: t('Chưa có việc đang chờ', 'No waiting tasks') },
+    { id: 'DOING', label: t('Đang làm'), empty: t('Chưa có việc đang làm', 'No task in progress') },
+    { id: 'DONE', label: t('Đã xong'), empty: t('Chưa có việc hoàn thành', 'No completed tasks') },
   ];
+  const energyNames = useEnergyLabels();
+  const filters: { id: Filter; label: string }[] = [
+    { id: 'ALL', label: t('Tất cả', 'All energies') },
+    ...energyLevels.map((id) => ({ id, label: energyNames[id] })),
+  ];
+  const { boards, activeBoardId } = useBoardStore();
+  const activeBoards = boards.filter((board) => !board.isArchived);
+  const activeBoard = activeBoards.find((board) => board.id === activeBoardId) ?? activeBoards[0];
+  const boardTasks = tasks.filter((task) => !activeBoard
+    || task.boardId === activeBoard.id
+    || (activeBoard.id === activeBoards[0]?.id && (!task.boardId || task.boardId === 'board-main')));
+  const doingTask = tasks.find((task) => task.status === 'DOING') ?? null;
+  const { column, filter } = view;
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [showContinuation, setShowContinuation] = useState(false);
+  const [boardPickerOpen, setBoardPickerOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<Task | null>(null);
 
-  // Dynamic Re-ranking & Dimming based on Energy Filter
-  const displayedTasks = useMemo(() => {
-    const columnTasks = boardFilteredTasks.filter((t) => t.status === activeColumn);
+  const detail = detailId ? tasks.find((task) => task.id === detailId || task.clientId === detailId) : null;
+  const visible = boardTasks.filter((task) => isInColumn(task, column));
+  if (filter !== 'ALL') {
+    visible.sort((a, b) => Number(b.energyRequired === filter) - Number(a.energyRequired === filter));
+  }
 
-    if (selectedEnergy === 'ALL') {
-      return columnTasks.map((t) => ({ task: t, isDimmed: false }));
+  const move = async (id: string, status: TaskStatus) => {
+    if (await onMoveTask(id, status) && status === 'DONE') {
+      useTaskStore.getState().showToast(t('Đã hoàn thành việc.', 'Task completed.'), 'success');
     }
-
-    const matched = columnTasks.filter((t) => t.energyRequired === selectedEnergy);
-    const unmatched = columnTasks.filter((t) => t.energyRequired !== selectedEnergy);
-
-    return [
-      ...matched.map((t) => ({ task: t, isDimmed: false })),
-      ...unmatched.map((t) => ({ task: t, isDimmed: true })),
-    ];
-  }, [boardFilteredTasks, activeColumn, selectedEnergy]);
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Minimalist App Header */}
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>🌌 Orbit</Text>
-          <TouchableOpacity
-            style={styles.boardChip}
-            onPress={() => setShowBoardSwitcher(true)}
-            activeOpacity={0.7}
-            accessible={true}
-            accessibilityRole="button"
-            accessibilityLabel={`Chuyển bảng công việc. Bảng hiện tại: ${activeBoard?.title || 'Học Tập'}`}
-          >
-            <Text style={styles.boardChipIcon}>{activeBoard?.icon || '📋'}</Text>
-            <Text style={styles.boardChipText} numberOfLines={1}>
-              {activeBoard?.title || 'Học Tập'}
-            </Text>
-            <Text style={styles.boardChipArrow}>▾</Text>
-          </TouchableOpacity>
-
-          {isLoading && (
-            <View style={styles.syncBadge}>
-              <Text style={styles.syncBadgeText}>Đồng bộ...</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.headerRight}>
-          {/* Header Streak & Shield Widget (minHeight >= 44pt touch-target) */}
-          <TouchableOpacity
-            style={styles.streakHeaderWidget}
-            onPress={handleOpenStreakModal}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessible={true}
-            accessibilityRole="button"
-            accessibilityLabel={`Chuỗi ${streak.currentStreak} ngày, ${streak.freezeCredits} Khiên Đóng Băng bảo vệ`}
-            accessibilityHint="Chạm để xem thông tin chi tiết về Khiên Đóng Băng và XP"
-          >
-            <Text style={styles.streakCompactText}>
-              🔥 {streak.currentStreak} <Text style={styles.streakDividerDot}>•</Text> 🛡️ {streak.freezeCredits}
-            </Text>
-          </TouchableOpacity>
-
-          {onNavigateFocus && (
-            <TouchableOpacity
-              style={styles.focusHeaderBtn}
-              onPress={onNavigateFocus}
-              activeOpacity={0.8}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Mở màn hình tập trung đơn nhiệm Focus"
-              accessibilityHint="Chạm để chuyển sang chế độ tập trung với Pomodoro timer"
-            >
-              <Text style={styles.focusHeaderBtnText}>🎯 Focus</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={styles.profileHeaderBtn}
-            onPress={() => {
-              if (onNavigateSettings) {
-                onNavigateSettings();
-              } else if (onNavigateAuth) {
-                onNavigateAuth();
-              }
-            }}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessible={true}
-            accessibilityRole="button"
-            accessibilityLabel={user ? `Cài đặt hồ sơ ${user.displayName}` : 'Đăng nhập tài khoản'}
-          >
-            <Text style={styles.profileIconText}>{user ? '⚙️' : '🔑'}</Text>
-          </TouchableOpacity>
+        <ScreenHeader title={t('Bảng')} />
+        <View style={styles.tools}>
+          <Pressable style={[styles.toolButton, styles.boardButton]} onPress={() => setBoardPickerOpen(true)}
+            accessibilityRole="button" accessibilityLabel={`${t('Chọn bảng')} · ${activeBoard?.title ?? ''}`}>
+            <Text style={styles.toolText} numberOfLines={1}>{activeBoard?.title ?? t('Chọn bảng')}</Text>
+            <OrbitIcon name="chevron" color={colors.muted} size={16} />
+          </Pressable>
+          <Pressable style={styles.toolButton} onPress={() => setFilterOpen(true)} accessibilityRole="button"
+            accessibilityLabel={t('Ưu tiên theo năng lượng', 'Prioritize by energy')}>
+            <OrbitIcon name="filter" color={colors.muted} size={18} />
+            <Text style={styles.toolText}>{filter === 'ALL' ? t('Năng lượng', 'Energy') : energyNames[filter]}</Text>
+          </Pressable>
         </View>
       </View>
 
-      {/* Gentle Tooltip/Modal for Streak Freeze Shield */}
-      <Modal
-        visible={showStreakModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowStreakModal(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalShieldIcon}>🛡️</Text>
-              <Text style={styles.modalTitle}>KHIÊN ĐÓNG BĂNG & CHUỖI NGÀY</Text>
-            </View>
-
-            <Text style={styles.modalEmpatheticMessage}>
-              "Khiên Đóng Băng sẽ tự động tha thứ và bảo vệ chuỗi ngày nếu hôm nay bạn bận việc hoặc cần nghỉ ngơi. Không áp lực, hãy làm khi bạn sẵn sàng! 🌿"
-            </Text>
-
-            <View style={styles.modalStatsGrid}>
-              <View style={styles.modalStatCard}>
-                <Text style={styles.modalStatValueFire}>🔥 {streak.currentStreak} ngày</Text>
-                <Text style={styles.modalStatLabel}>Chuỗi tập trung liên tiếp</Text>
-              </View>
-
-              <View style={styles.modalStatCard}>
-                <Text style={styles.modalStatValueShield}>🛡️ {streak.freezeCredits} Khiên</Text>
-                <Text style={styles.modalStatLabel}>Lá chắn bảo lưu sẵn sàng</Text>
-              </View>
-            </View>
-
-            <View style={styles.modalXpRow}>
-              <Text style={styles.modalXpText}>
-                ⭐ <Text style={styles.modalBoldText}>{streak.totalXp} XP</Text> • Cấp độ {streak.currentLevel}
-              </Text>
-              <Text style={styles.modalTipText}>
-                🌱 Cứ mỗi 3 ngày hoàn thành nhiệm vụ liên tục, bạn được nhận thêm 1 Khiên Bảo Vệ (tối đa 2 khiên).
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.modalCloseBtn}
-              onPress={() => setShowStreakModal(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalCloseBtnText}>Đã hiểu 🌿</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Energy Quick-Filter Widget */}
-      <EnergyFilterWidget
-        selectedEnergy={selectedEnergy}
-        onSelectEnergy={(energy) => setSelectedEnergy(energy)}
-        streakDays={streak.currentStreak}
-        freezeCount={streak.freezeCredits}
-        showStreakCard={false}
-      />
-
-      {/* Analysis Paralysis Rescue Banner */}
-      <TouchableOpacity
-        style={styles.rescueBanner}
-        onPress={() => setShowRescueModal(true)}
-        activeOpacity={0.8}
-        accessible={true}
-        accessibilityRole="button"
-        accessibilityLabel="Mở cửa sổ Cứu tê liệt não"
-      >
-        <View style={styles.rescueBannerLeft}>
-          <Text style={styles.rescueBannerIcon}>✨</Text>
-          <View style={styles.rescueBannerTextGroup}>
-            <Text style={styles.rescueBannerTitle}>Tê liệt não? Không biết làm gì trước?</Text>
-            <Text style={styles.rescueBannerSubtitle}>
-              Orbit sẽ quét P(T) và chọn 1 việc nhẹ nhàng nhất 🌿
-            </Text>
-          </View>
-        </View>
-        <View style={styles.rescueBannerButton}>
-          <Text style={styles.rescueBannerButtonText}>Cứu tôi 🎲</Text>
-        </View>
-      </TouchableOpacity>
-
-      {/* Column Tabs */}
-      <View style={styles.columnTabBar}>
-        {columns.map((col) => {
-          const isActive = activeColumn === col.status;
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs}
+        contentContainerStyle={styles.tabsContent}>
+        {columns.map(({ id, label }) => {
+          const count = boardTasks.filter((task) => isInColumn(task, id)).length;
           return (
-            <TouchableOpacity
-              key={col.status}
-              style={[styles.columnTab, isActive && styles.columnTabActive]}
-              onPress={() => {
-                if (Platform.OS !== 'web') {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }
-                setActiveColumn(col.status);
-              }}
-              activeOpacity={0.7}
-              accessible={true}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: isActive }}
-              accessibilityLabel={`Cột ${col.label}, ${col.count} nhiệm vụ`}
-            >
-              <Text
-                style={[
-                  styles.columnTabText,
-                  isActive && styles.columnTabTextActive,
-                ]}
-              >
-                {col.label}
-              </Text>
-              <View
-                style={[
-                  styles.countBadge,
-                  isActive && styles.countBadgeActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.countBadgeText,
-                    isActive && styles.countBadgeTextActive,
-                  ]}
-                >
-                  {col.count}
-                </Text>
-              </View>
-            </TouchableOpacity>
+            <Pressable key={id} style={[styles.tab, column === id && styles.tabActive]}
+              accessibilityRole="tab" accessibilityState={{ selected: column === id }}
+              onPress={() => onViewChange({ ...view, column: id })}>
+              <Text style={[styles.tabText, column === id && styles.tabTextActive]}>{label} {count}</Text>
+            </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
-      {/* Task Cards List with Virtualization, Energy-based Rerank, Dimming and Subtask check-off */}
-      <FlatList
-        data={displayedTasks}
-        keyExtractor={(item) => item.task.id}
-        style={styles.taskListContainer}
-        contentContainerStyle={styles.taskListContent}
-        initialNumToRender={8}
-        maxToRenderPerBatch={8}
-        windowSize={5}
-        removeClippedSubviews={Platform.OS !== 'web'}
-        ListHeaderComponent={
-          selectedEnergy !== 'ALL' ? (
-            <View style={styles.filterHintBanner}>
-              <Text style={styles.filterHintText}>
-                💡 Lọc: {selectedEnergy === 'LOW' ? '☕ Thấp' : selectedEnergy === 'MEDIUM' ? '⚡ Vừa' : '🔥 Cao'}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setSelectedEnergy('ALL')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="Xóa bộ lọc năng lượng"
-              >
-                <Text style={styles.filterClearText}>✕ Đặt lại</Text>
-              </TouchableOpacity>
-            </View>
-          ) : undefined
-        }
+      {showContinuation && doingTask && (
+        <Pressable style={styles.continuation} accessibilityRole="button"
+          onPress={() => void onFocusTask(doingTask.id)}>
+          <Text style={styles.toolText}>{t('Tiếp tục')} · {doingTask.title}</Text>
+          <OrbitIcon name="arrow" size={20} color={colors.accent} />
+        </Pressable>
+      )}
+
+      <FlatList data={visible} keyExtractor={(task) => task.clientId ?? task.id}
+        style={styles.listContainer} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>
-              {activeColumn === 'DOING'
-                ? '🎯'
-                : activeColumn === 'DONE'
-                ? '✨'
-                : '☕'}
-            </Text>
-            <Text style={styles.emptyTitle}>
-              {activeColumn === 'DOING'
-                ? 'Chưa có việc nào đang làm'
-                : activeColumn === 'DONE'
-                ? 'Chưa có việc nào hoàn thành hôm nay'
-                : 'Đầu óc bạn đang thảnh thơi!'}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {activeColumn === 'DOING'
-                ? 'Hãy chọn 1 việc vừa sức nhất trong cột "Cần làm" để bắt đầu nhẹ nhàng nhé!'
-                : activeColumn === 'DONE'
-                ? 'Mỗi bước nhỏ đều đưa bạn đến gần đích hơn.'
-                : 'Nếu có ý nghĩ nào nảy ra, hãy thêm nhanh ở thanh dưới đáy. Orbit sẽ giữ hộ bạn.'}
-            </Text>
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>{columns.find(({ id }) => id === column)?.empty}</Text>
+            {column === 'WAITING' &&
+              <Text style={styles.emptyHint}>{t('Ghi một việc bằng ô nhập bên dưới.', 'Capture a task in the field below.')}</Text>}
           </View>
         }
         renderItem={({ item }) => (
-          <TaskCard
-            task={item.task}
-            onMoveTask={handleTaskMovement}
-            onOpenAIDecompose={(t) => setDecomposingTask(t)}
-            onFocusTask={handleFocusTaskAction}
-            onToggleSubtask={handleToggleSubtaskWrapper}
-            onOpenDetail={(t) => setSelectedDetailTaskId(t.id)}
-            isDimmed={item.isDimmed}
-            triggerRollback={propRollbackTaskId === item.task.id}
+          <TaskCard task={item} onMoveTask={move}
+            onOpenDetail={(task) => setDetailId(task.clientId ?? task.id)}
+            onFocusTask={async (task) => {
+              if (task.status !== 'DOING') setDetailId(task.clientId ?? task.id);
+              else if (!await onFocusTask(task.id)) setShowContinuation(true);
+            }}
+            isDimmed={filter !== 'ALL' && filter !== item.energyRequired}
+            triggerRollback={rollbackTaskId === item.id}
           />
         )}
       />
 
-      {/* Bottom Quick Capture Bar */}
-      <QuickCaptureBar onAddTask={handleQuickAdd} />
+      <QuickCaptureBar onAddTask={(title, energy, description) => {
+        onQuickAdd(title, energy, description, activeBoard?.id);
+        onViewChange({ ...view, column: 'WAITING' });
+      }} />
 
-      {/* AI Task Decomposition Modal */}
-      <AIDecomposeModal
-        visible={decomposingTask !== null}
-        task={decomposingTask}
-        onClose={() => setDecomposingTask(null)}
-        onApplySubtasks={onApplySubtasks}
-      />
-
-      {/* Task Detail & Subtasks Checklist Modal (Screen 6) */}
-      <TaskDetailModal
-        visible={selectedDetailTask !== null}
-        task={selectedDetailTask}
-        onClose={() => setSelectedDetailTaskId(null)}
-        onUpdateTask={(taskId, updates) => {
-          onUpdateTask?.(taskId, updates);
-        }}
-        onDeleteTask={(taskId) => {
-          onDeleteTask?.(taskId);
-        }}
-        onToggleSubtask={handleToggleSubtaskWrapper}
-        onApplySubtasks={onApplySubtasks}
-        onOpenAIDecompose={(t) => setDecomposingTask(t)}
-        onStartFocus={(t) => handleFocusTaskAction(t)}
-      />
-
-      {/* Modal Chuyển Đổi Bảng Công Việc (Screen 3) */}
-      <BoardSwitcherModal
-        visible={showBoardSwitcher}
-        onClose={() => setShowBoardSwitcher(false)}
-      />
-
-      {/* Modal Cứu Tê Liệt Não - Magic Pick */}
-      <RescueModal
-        visible={showRescueModal}
-        onClose={() => setShowRescueModal(false)}
-        onStartFocus={(task) => handleFocusTaskAction(task)}
-        currentEnergy={selectedEnergy !== 'ALL' ? selectedEnergy : 'MEDIUM'}
-        activeBoardId={activeBoardId}
-      />
-
-      {/* Hiệu ứng Dopamine lấp lánh khi tick việc */}
-      <DopamineCelebration
-        visible={celebrationState.visible}
-        message={celebrationState.message}
-        xpAmount={celebrationState.xp}
-        onAnimationEnd={() =>
-          setCelebrationState((prev) => ({ ...prev, visible: false }))
-        }
-      />
+      {filterOpen && <ChoiceSheet title={t('Ưu tiên theo năng lượng', 'Prioritize by energy')} selected={filter} choices={filters}
+        onSelect={(filter) => onViewChange({ ...view, filter })} onClose={() => setFilterOpen(false)} />}
+      <BoardSwitcherModal visible={boardPickerOpen} onClose={() => setBoardPickerOpen(false)} />
+      <AIDecomposeModal visible={!!proposal} task={proposal} onClose={() => setProposal(null)}
+        doingTask={doingTask} onApplySubtasks={onApplySubtasks} onStartFocus={onFocusTask} />
+      <TaskDetailModal key={detail?.clientId ?? detail?.id} visible={!!detail && !proposal} task={detail ?? null} doingTask={doingTask}
+        onClose={() => setDetailId(null)} onUpdateTask={onUpdateTask} onDeleteTask={onDeleteTask}
+        onMoveTask={onMoveTask} onToggleSubtask={onToggleSubtask} onApplySubtasks={onApplySubtasks}
+        onOpenAIDecompose={setProposal} onStartFocus={onFocusTask} />
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#F8FAFC',
-    letterSpacing: -0.5,
-  },
-  boardChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-    maxWidth: 150,
-    minHeight: 44, // WCAG Touch Target >= 44x44 pt
-  },
-  boardChipIcon: {
-    fontSize: 13,
-    marginRight: 4,
-  },
-  boardChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#38BDF8',
-    flexShrink: 1,
-  },
-  boardChipArrow: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginLeft: 4,
-  },
-  syncBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-  },
-  syncBadgeText: {
-    color: '#38BDF8',
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  streakHeaderWidget: {
-    backgroundColor: '#1E293B',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    minHeight: 44, // WCAG Touch Target >= 44x44 pt
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  streakCompactText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FBBF24',
-  },
-  streakDividerDot: {
-    color: '#64748B',
-  },
-  focusHeaderBtn: {
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#38BDF8',
-    minHeight: 44, // WCAG Touch Target >= 44x44 pt
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  focusHeaderBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  profileHeaderBtn: {
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-    minHeight: 44, // WCAG Touch Target >= 44x44 pt
-    minWidth: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileIconText: {
-    fontSize: 16,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.82)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#1E293B',
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#334155',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  modalShieldIcon: {
-    fontSize: 22,
-  },
-  modalTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#818CF8',
-    letterSpacing: 0.5,
-  },
-  modalEmpatheticMessage: {
-    fontSize: 14,
-    color: '#F8FAFC',
-    lineHeight: 22,
-    fontStyle: 'italic',
-    backgroundColor: 'rgba(129, 140, 248, 0.1)',
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(129, 140, 248, 0.25)',
-    marginBottom: 16,
-  },
-  modalStatsGrid: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  modalStatCard: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-  },
-  modalStatValueFire: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FBBF24',
-    marginBottom: 4,
-  },
-  modalStatValueShield: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#818CF8',
-    marginBottom: 4,
-  },
-  modalStatLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    textAlign: 'center',
-  },
-  modalXpRow: {
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginBottom: 18,
-    gap: 6,
-  },
-  modalXpText: {
-    fontSize: 13,
-    color: '#38BDF8',
-  },
-  modalBoldText: {
-    fontWeight: '800',
-  },
-  modalTipText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    lineHeight: 16,
-  },
-  modalCloseBtn: {
-    backgroundColor: '#334155',
-    minHeight: 48, // WCAG Touch target >= 44x44 pt
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCloseBtnText: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  columnTabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-    gap: 6,
-  },
-  columnTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: 'transparent',
-    minHeight: 44, // WCAG Touch-target >= 44x44 pt
-  },
-  columnTabActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderColor: '#38BDF8',
-  },
-  columnTabText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-    marginRight: 4,
-  },
-  columnTabTextActive: {
-    color: '#38BDF8',
-    fontWeight: '700',
-  },
-  countBadge: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 10,
-  },
-  countBadgeActive: {
-    backgroundColor: '#38BDF8',
-  },
-  countBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#CBD5E1',
-  },
-  countBadgeTextActive: {
-    color: '#0F172A',
-  },
-  filterHintBanner: {
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  filterHintText: {
-    color: '#38BDF8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  filterClearText: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  taskListContainer: {
-    flex: 1,
-  },
-  taskListContent: {
-    padding: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
-  },
-  emptyIcon: {
-    fontSize: 40,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#E2E8F0',
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#94A3B8',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  rescueBanner: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.35)',
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  rescueBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 8,
-  },
-  rescueBannerIcon: {
-    fontSize: 20,
-    marginRight: 10,
-  },
-  rescueBannerTextGroup: {
-    flex: 1,
-  },
-  rescueBannerTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#38BDF8',
-  },
-  rescueBannerSubtitle: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  rescueBannerButton: {
-    backgroundColor: '#0284C7',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    minHeight: 36,
-    justifyContent: 'center',
-  },
-  rescueBannerButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: colors.canvas },
+  header: { gap: 12, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  tools: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
+  toolButton: { flexDirection: 'row', minHeight: 44, minWidth: 44, paddingHorizontal: 12, gap: 6, alignItems: 'center', borderRadius: 10, backgroundColor: colors.surface },
+  boardButton: { flex: 1, justifyContent: 'space-between' },
+  toolText: { color: colors.text, fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  tabs: { flexGrow: 0, borderBottomColor: colors.border, borderBottomWidth: 1 },
+  tabsContent: { paddingHorizontal: 16, gap: 8 },
+  tab: { minHeight: 44, minWidth: 44, paddingHorizontal: 8, paddingVertical: 8, justifyContent: 'center', borderBottomWidth: 2, borderColor: 'transparent' },
+  tabActive: { borderBottomColor: colors.accent },
+  tabText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  tabTextActive: { color: colors.text },
+  continuation: { minHeight: 44, marginHorizontal: 16, marginTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  listContainer: { flex: 1 },
+  list: { padding: 16, gap: 8 },
+  empty: { paddingVertical: 24, gap: 8 },
+  emptyTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },
+  emptyHint: { color: colors.muted, fontSize: 14 },
 });

@@ -12,7 +12,7 @@ public interface AIService {
 
     /**
      * Bẻ nhỏ nhiệm vụ thành các vi bước (Subtasks) theo các nguyên tắc công thái học nhận thức ADHD
-     * sử dụng Google Gemini 1.5 Flash (chế độ JSON structured output).
+     * sử dụng Google Gemini (chế độ JSON structured output).
      *
      * Cơ chế Heuristic Fallback:
      * Nếu thời gian gọi vượt quá 3000ms hoặc lỗi mạng/quota, tự động kích hoạt Heuristic Fallback Engine
@@ -21,5 +21,5 @@ public interface AIService {
      * @param taskId ID nhiệm vụ cần phân rã
      * @return AIDecomposeResponse chứa danh sách gợi ý vi bước
      */
-    AIDecomposeResponse decomposeTask(UUID taskId);
+    AIDecomposeResponse decomposeTask(UUID taskId, boolean english);
 }

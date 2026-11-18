@@ -1,3 +1,4 @@
+import { useLocale } from '../ui/locale';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
@@ -22,6 +23,7 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
   onDismiss,
   durationMs = 3500,
 }) => {
+  const t = useLocale();
   // Internal state to keep component mounted during slide-up exit animation
   const [shouldRender, setShouldRender] = useState<boolean>(visible);
   const translateY = useRef(new Animated.Value(-120)).current;
@@ -144,7 +146,7 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
         <Text style={styles.icon}>{getIcon()}</Text>
         <View style={styles.textWrapper}>
           <Text style={styles.messageText}>{message}</Text>
-          <Text style={styles.dismissHint}>Chạm để đóng</Text>
+          <Text style={styles.dismissHint}>{t("Chạm để đóng", "Tap to dismiss")}</Text>
         </View>
       </TouchableOpacity>
     </Animated.View>

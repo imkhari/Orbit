@@ -2,11 +2,11 @@ package com.orbit.repository;
 
 import com.orbit.entity.Task;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -28,29 +28,25 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
      */
     List<Task> findByUserIdOrderByPositionAsc(UUID userId);
 
-    /**
-     * Lấy danh sách nhiệm vụ theo trạng thái và thứ tự vị trí, kèm vi bước (eager fetch để tránh N+1).
-     */
-    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.subtasks WHERE t.status = :status ORDER BY t.position ASC")
-    List<Task> findByStatusOrderByPositionAsc(@Param("status") Task.TaskStatus status);
+    Optional<Task> findByIdAndUserId(UUID taskId, UUID userId);
 
-    /**
-     * Lấy toàn bộ nhiệm vụ sắp xếp theo thời điểm tạo mới nhất, kèm vi bước (eager fetch để tránh N+1).
-     */
-    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.subtasks ORDER BY t.createdAt DESC")
-    List<Task> findAllByOrderByCreatedAtDesc();
+    @EntityGraph(attributePaths = "subtasks")
+    List<Task> findByUserIdOrderByCreatedAtDesc(UUID userId);
 
-    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.subtasks WHERE t.board.id = :boardId ORDER BY t.position ASC")
-    List<Task> findByBoardIdOrderByPositionAsc(@Param("boardId") UUID boardId);
+    @EntityGraph(attributePaths = "subtasks")
+    List<Task> findByUserIdAndStatusOrderByPositionAsc(UUID userId, Task.TaskStatus status);
 
-    @Query("SELECT DISTINCT t FROM Task t LEFT JOIN FETCH t.subtasks WHERE t.board.id = :boardId AND t.status = :status ORDER BY t.position ASC")
-    List<Task> findByBoardIdAndStatusOrderByPositionAsc(@Param("boardId") UUID boardId, @Param("status") Task.TaskStatus status);
+    @EntityGraph(attributePaths = "subtasks")
+    List<Task> findByUserIdAndBoardIdOrderByPositionAsc(UUID userId, UUID boardId);
+
+    @EntityGraph(attributePaths = "subtasks")
+    List<Task> findByUserIdAndBoardIdAndStatusOrderByPositionAsc(UUID userId, UUID boardId, Task.TaskStatus status);
 
     long countByBoardId(UUID boardId);
 
-    java.util.Optional<Task> findFirstByUserIdAndStatus(UUID userId, Task.TaskStatus status);
+    Optional<Task> findFirstByUserIdAndStatus(UUID userId, Task.TaskStatus status);
 
-    java.util.Optional<Task> findFirstByStatus(Task.TaskStatus status);
+    Optional<Task> findFirstByStatus(Task.TaskStatus status);
 
     List<Task> findByUserId(UUID userId);
 

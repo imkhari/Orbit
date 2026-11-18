@@ -1,3 +1,4 @@
+import { useEnergyLabels, useLocale } from '../ui/locale';
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -10,12 +11,15 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { EnergyLevel } from '../types';
+import { colors } from '../ui/theme';
 
 interface QuickCaptureBarProps {
   onAddTask: (title: string, energy: EnergyLevel, description?: string) => void;
 }
 
 export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) => {
+  const t = useLocale();
+  const energyLabels = useEnergyLabels();
   const [title, setTitle] = useState('');
   const [selectedEnergy, setSelectedEnergy] = useState<EnergyLevel>('MEDIUM');
 
@@ -30,27 +34,9 @@ export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) =
     });
   };
 
-  const getEnergyConfig = (level: EnergyLevel) => {
-    switch (level) {
-      case 'LOW':
-        return { label: '☕ Thấp', color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.15)' };
-      case 'HIGH':
-        return { label: '🔥 Cao', color: '#F87171', bg: 'rgba(248, 113, 113, 0.15)' };
-      case 'MEDIUM':
-      default:
-        return { label: '⚡ Vừa', color: '#FBBF24', bg: 'rgba(251, 191, 36, 0.15)' };
-    }
-  };
-
-  const energyInfo = getEnergyConfig(selectedEnergy);
-
   const handleSend = () => {
     const trimmed = title.trim();
     if (!trimmed) return;
-
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
 
     onAddTask(trimmed, selectedEnergy);
     setTitle('');
@@ -61,28 +47,28 @@ export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) =
     <View style={styles.container}>
       <View style={styles.inputRow}>
         <TouchableOpacity
-          style={[styles.energyCycleBtn, { backgroundColor: energyInfo.bg, borderColor: energyInfo.color }]}
+          style={styles.energyCycleBtn}
           onPress={cycleEnergy}
           activeOpacity={0.7}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel={`Mức năng lượng: ${energyInfo.label}. Nhấn để đổi`}
+          accessibilityLabel={`${t("Đổi mức năng lượng", "Change energy")} · ${energyLabels[selectedEnergy]}`}
         >
-          <Text style={[styles.energyCycleText, { color: energyInfo.color }]}>
-            {energyInfo.label}
+          <Text style={styles.energyCycleText}>
+            {energyLabels[selectedEnergy]}
           </Text>
         </TouchableOpacity>
 
         <TextInput
           style={styles.textInput}
-          placeholder="Thêm việc mới..."
-          placeholderTextColor="#64748B"
+          placeholder={t('Tên việc')}
+          placeholderTextColor={colors.muted}
           value={title}
           onChangeText={setTitle}
           onSubmitEditing={handleSend}
           returnKeyType="done"
           accessible={true}
-          accessibilityLabel="Nhập tiêu đề công việc mới vào Backlog"
+          accessibilityLabel={t("Nhập tiêu đề công việc mới", "Enter a new task name")}
         />
 
         <TouchableOpacity
@@ -92,9 +78,9 @@ export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) =
           activeOpacity={0.8}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel="Thêm nhiệm vụ vào Backlog"
+          accessibilityLabel={t("Thêm nhiệm vụ", "Capture task")}
         >
-          <Text style={styles.addButtonText}>+ Thêm</Text>
+          <Text style={[styles.addButtonText, !title.trim() && styles.disabledLabel]}>{t("Ghi", "Add")}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -103,9 +89,9 @@ export const QuickCaptureBar: React.FC<QuickCaptureBarProps> = ({ onAddTask }) =
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.canvas,
     borderTopWidth: 1,
-    borderTopColor: '#334155',
+    borderTopColor: colors.border,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -116,6 +102,9 @@ const styles = StyleSheet.create({
   },
   energyCycleBtn: {
     minHeight: 44,
+    minWidth: 44,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     paddingHorizontal: 10,
     borderRadius: 10,
     borderWidth: 1,
@@ -123,23 +112,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   energyCycleText: {
+    color: colors.text,
     fontSize: 12,
     fontWeight: '700',
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#0F172A',
-    color: '#F8FAFC',
+    backgroundColor: colors.surface,
+    color: colors.text,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.outline,
     minHeight: 44,
   },
   addButton: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.accent,
     borderRadius: 10,
     paddingHorizontal: 14,
     minHeight: 44,
@@ -147,11 +137,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addButtonDisabled: {
-    backgroundColor: '#334155',
-    opacity: 0.6,
+    backgroundColor: colors.surface,
   },
+  disabledLabel: { color: colors.muted },
   addButtonText: {
-    color: '#0F172A',
+    color: colors.accentInk,
     fontSize: 13,
     fontWeight: '700',
   },

@@ -1,27 +1,22 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  Modal,
-  Platform,
-} from 'react-native';
+import { useLocale } from '../ui/locale';
+import React, { useRef, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { Task, Subtask } from '../types';
 import { FocusTimer } from '../components/FocusTimer';
 import { FocusSessionService } from '../services/api';
-import { useTaskStore } from '../store/useTaskStore';
+import { FocusTimerState, useFocusStore } from '../store/useFocusStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useTaskStore } from '../store/useTaskStore';
+import { ActionButton, LanguageButton } from '../ui/Controls';
+import { colors } from '../ui/theme';
+import { Subtask, Task } from '../types';
 
 interface FocusScreenProps {
   doingTask: Task | null;
   onExitFocus: () => void;
-  onCompleteTask: (taskId: string) => void;
-  onToggleSubtask: (taskId: string, subtaskId: string) => void;
+  onCompleteTask: (taskId: string) => Promise<boolean>;
+  onToggleSubtask: (taskId: string, subtaskId: string) => Promise<boolean>;
 }
 
 export const FocusScreen: React.FC<FocusScreenProps> = ({
@@ -30,699 +25,149 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({
   onCompleteTask,
   onToggleSubtask,
 }) => {
+  const t = useLocale();
+  const focus = useFocusStore();
+  const pomodoroMinutes = useSettingsStore((state) => state.pomodoroMinutes);
+  const busy = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPomodoroDoneModal, setShowPomodoroDoneModal] = useState(false);
 
-  const {
-    pomodoroMinutes,
-    soundscape,
-    isSoundscapePlaying,
-    toggleSoundscapePlaying,
-  } = useSettingsStore();
-
-  // If no task is currently in DOING
   if (!doingTask) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🎯</Text>
-          <Text style={styles.emptyTitle}>Chưa có công việc trong "Đang làm"</Text>
-          <Text style={styles.emptySubtitle}>
-            Hãy quay lại bảng Kanban và chọn 1 việc đưa vào cột "Đang làm" để kích hoạt chế độ tập trung đơn nhiệm nhé!
-          </Text>
-          <TouchableOpacity
-            style={styles.returnBtn}
-            onPress={onExitFocus}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.returnBtnText}>← Quay lại bảng Kanban</Text>
-          </TouchableOpacity>
+        <View style={styles.header}><Text style={styles.headerName}>{t('Tập trung')}</Text><LanguageButton /></View>
+        <View style={styles.empty}>
+          <Text style={styles.title}>{t("Chưa có việc đang làm", "No task in progress")}</Text>
+          <ActionButton label={t("Quay lại", "Back")} onPress={onExitFocus} />
         </View>
       </SafeAreaView>
     );
   }
 
-  const subtasks = doingTask.subtasks || [];
-  const completedCount = subtasks.filter((s) => s.isCompleted).length;
-  const totalCount = subtasks.length;
-  const percentDone =
-    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const session = focus.session?.taskId === doingTask.id ? focus.session : null;
+  const steps = [...doingTask.subtasks].sort((a, b) => a.stepOrder - b.stepOrder);
+  const completed = steps.filter((step) => step.isCompleted).length;
+  const activeStep = steps.find((step) => step.id === session?.stepId && !step.isCompleted)
+    ?? steps.find((step) => !step.isCompleted);
+  const canTimeStep = !!activeStep && activeStep.estimatedMinutes >= 1 && activeStep.estimatedMinutes <= 20;
+  const shortSession = session?.mode === 'step' && canTimeStep;
+  const minutes = shortSession && activeStep ? activeStep.estimatedMinutes : pomodoroMinutes;
+  const timer = session?.timer;
+  const timerInProgress = timer != null && (timer.endsAt !== null || timer.remainingSeconds > 0);
 
-  // Xử lý khi hoàn thành hết 25 phút Pomodoro
-  const handlePomodoroComplete = async () => {
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-
-    // Ghi nhận phiên Pomodoro theo thời lượng cấu hình lên backend để nhận thưởng +15 XP
-    try {
-      await FocusSessionService.logSession({
+  const finishSession = (finished: FocusTimerState) => {
+    const current = useFocusStore.getState();
+    if (current.session?.taskId !== doingTask.id || current.session.timer !== finished) return;
+    current.setTimer({ ...finished, remainingSeconds: 0, endsAt: null });
+    if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (!shortSession) {
+      FocusSessionService.logSession({
         taskId: doingTask.id,
-        durationMinutes: pomodoroMinutes,
+        durationMinutes: finished.minutes,
         isCompleted: true,
-      });
-      // Đồng bộ lại điểm thưởng XP và chuỗi ngày
-      useTaskStore.getState().fetchStreak();
-    } catch (err: any) {
-      console.warn('Focus session background sync failed (lưu tạm offline):', err?.message);
+      }).then(() => useTaskStore.getState().fetchStreak())
+        .catch(() => useTaskStore.getState().showToast(t("Phiên đã kết thúc. Orbit chưa ghi nhận được phiên này.", "Your session ended. Orbit could not log it."), 'info'));
     }
-
-    // Hiển thị Modal khích lệ dịu dàng (không dùng Alert trùng lặp gây rối mắt)
-    setShowPomodoroDoneModal(true);
   };
 
-  const handleFinishTask = () => {
-    if (isSubmitting) return; // Prevent double-tap
+  const saveAction = async (step?: Subtask) => {
+    if (busy.current) return;
+    busy.current = true;
     setIsSubmitting(true);
-
-    if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      if (!step) {
+        if (await onCompleteTask(doingTask.id)) {
+          focus.clear();
+          onExitFocus();
+        }
+        return;
+      }
+      if (await onToggleSubtask(doingTask.id, step.id) && !step.isCompleted && step.id === activeStep?.id) {
+        const next = steps.find((item) => !item.isCompleted && item.id !== step.id);
+        focus.advance(next?.id);
+      }
+    } finally {
+      busy.current = false;
+      setIsSubmitting(false);
     }
-
-    Alert.alert(
-      '🎉 Xuất sắc!',
-      `Bạn đã hoàn thành công việc "${doingTask.title}". Dopamine dâng trào, hãy nghỉ ngơi một chút trước khi nhận việc tiếp theo!`,
-      [
-        {
-          text: 'Về bảng Kanban',
-          onPress: () => {
-            onCompleteTask(doingTask.id);
-            onExitFocus();
-          },
-        },
-      ]
-    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Focus Mode Clean Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.exitButton}
-          onPress={onExitFocus}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.exitButtonText}>← Bảng Kanban</Text>
+        <TouchableOpacity style={styles.back} onPress={onExitFocus} accessibilityRole="button"
+          accessibilityLabel={t("Tạm dừng và quay lại", "Pause and go back")}>
+          <Text style={styles.backLabel}>{t("‹ Quay lại", "‹ Back")}</Text>
         </TouchableOpacity>
-
-        <View style={styles.focusModePill}>
-          <Text style={styles.focusModePillText}>🎯 Chế độ Đơn Nhiệm</Text>
-        </View>
+        <Text style={styles.headerName}>{t('Tập trung')}</Text>
+        <LanguageButton />
       </View>
-
-      <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Active Doing Task Spotlight */}
-        <View style={styles.spotlightCard}>
-          <View style={styles.taskMetaRow}>
-            <View style={styles.doingIndicator}>
-              <View style={styles.pulseDot} />
-              <Text style={styles.doingIndicatorText}>ĐANG THỰC HIỆN DUY NHẤT</Text>
-            </View>
-            <View style={styles.energyBadge}>
-              <Text style={styles.energyBadgeText}>
-                {doingTask.energyRequired === 'LOW'
-                  ? '☕ Nhẹ'
-                  : doingTask.energyRequired === 'HIGH'
-                  ? '🔥 Nặng'
-                  : '⚡ Vừa'}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={styles.taskTitle}>{doingTask.title}</Text>
-          {doingTask.description ? (
-            <Text style={styles.taskDesc}>{doingTask.description}</Text>
-          ) : null}
-        </View>
-
-        {/* Central Focus Pomodoro Timer */}
-        <View style={styles.timerSection}>
-          <FocusTimer
-            initialMinutes={pomodoroMinutes}
-            onComplete={handlePomodoroComplete}
-          />
-        </View>
-
-        {/* Cognitive Soundscape Ambient Quick Widget */}
-        <TouchableOpacity
-          style={[
-            styles.soundscapeWidget,
-            isSoundscapePlaying && styles.soundscapeWidgetActive,
-          ]}
-          onPress={toggleSoundscapePlaying}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.soundscapeWidgetIcon}>
-            {isSoundscapePlaying ? '🔊' : '🔇'}
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.label}>{activeStep ? doingTask.title : t("Việc đang làm", "Task in progress")}</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            {activeStep?.title ?? doingTask.title}
           </Text>
-          <View style={styles.soundscapeWidgetInfo}>
-            <Text style={styles.soundscapeWidgetTitle}>
-              {isSoundscapePlaying ? 'Đang phát âm thanh trợ năng' : 'Âm thanh trợ năng tập trung'}
+          {steps.length > 0 && (
+            <Text style={[styles.label, completed > 0 && styles.success]} accessibilityLiveRegion="polite">
+              {t(`${completed}/${steps.length} bước đã xong`, `${completed}/${steps.length} steps done`)}
             </Text>
-            <Text style={styles.soundscapeWidgetDesc}>
-              {soundscape === 'BROWN_NOISE'
-                ? 'Tiếng Ồn Nâu (Brown Noise) — Lọc tạp âm'
-                : soundscape === 'RAIN'
-                ? 'Mưa rào dịu nhẹ — Thư giãn tâm trí'
-                : soundscape === 'FOREST'
-                ? 'Rừng thông vi vu — Tăng sóng Alpha'
-                : soundscape === 'WAVES'
-                ? 'Sóng biển êm đềm — Giữ nhịp thở'
-                : 'Chạm để bật tiếng ồn nâu chặn tạp âm'}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.soundscapeStatusBadge,
-              isSoundscapePlaying && styles.soundscapeStatusBadgeActive,
-            ]}
-          >
-            <Text style={styles.soundscapeStatusText}>
-              {isSoundscapePlaying ? 'BẬT' : 'TẮT'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Micro-steps Checklist */}
-        <View style={styles.checklistCard}>
-          <View style={styles.checklistHeader}>
-            <Text style={styles.checklistTitle}>📋 Các bước nhỏ (Micro-steps)</Text>
-            {totalCount > 0 && (
-              <Text style={styles.stepCounterText}>
-                {completedCount}/{totalCount} ({percentDone}%)
-              </Text>
-            )}
-          </View>
-
-          {totalCount === 0 ? (
-            <View style={styles.noSubtasksBox}>
-              <Text style={styles.noSubtasksText}>
-                Chưa có bước nhỏ nào được thêm. Bạn có thể tập trung hoàn thành toàn bộ công việc này theo nhịp 25 phút!
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.subtasksList}>
-              {subtasks.map((sub: Subtask) => {
-                return (
-                  <TouchableOpacity
-                    key={sub.id}
-                    style={[
-                      styles.subtaskItem,
-                      sub.isCompleted && styles.subtaskItemCompleted,
-                    ]}
-                    onPress={() => {
-                      if (Platform.OS !== 'web') {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      }
-                      onToggleSubtask(doingTask.id, sub.id);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <View
-                      style={[
-                        styles.checkbox,
-                        sub.isCompleted && styles.checkboxChecked,
-                      ]}
-                    >
-                      {sub.isCompleted && (
-                        <Text style={styles.checkmarkIcon}>✓</Text>
-                      )}
-                    </View>
-
-                    <View style={styles.subtaskTextWrapper}>
-                      <Text
-                        style={[
-                          styles.subtaskTitle,
-                          sub.isCompleted && styles.subtaskTitleCompleted,
-                        ]}
-                      >
-                        {sub.title}
-                      </Text>
-                      <Text style={styles.subtaskMeta}>
-                        ⏱️ ~{sub.estimatedMinutes}m • {sub.energyLevel}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
           )}
+
+          <FocusTimer initialMinutes={minutes} timer={timer} checklistProgress={steps.length ? completed / steps.length : undefined}
+            onChange={focus.setTimer} onComplete={finishSession} />
+          {timer?.remainingSeconds === 0 && timer.endsAt === null && (
+            <Text style={styles.notice} accessibilityLiveRegion="polite">{t(`Phiên ${timer.minutes} phút đã kết thúc.`, `Your ${timer.minutes}-minute session ended.`)}</Text>
+          )}
+          <ActionButton label={activeStep ? t("Xong bước này", "Finish this step") : t('Hoàn thành việc')}
+            onPress={() => void saveAction(activeStep)} disabled={isSubmitting} />
         </View>
 
-        {/* Action Button: Mark Task Done */}
-        <View style={styles.bottomActionWrapper}>
-          <TouchableOpacity
-            style={[styles.completeTaskBtn, isSubmitting && styles.completeTaskBtnDisabled]}
-            onPress={handleFinishTask}
-            activeOpacity={0.8}
-            disabled={isSubmitting}
-          >
-            <Text style={styles.completeTaskBtnText}>
-              ✓ Hoàn thành công việc này
-            </Text>
-          </TouchableOpacity>
+        {canTimeStep && !timerInProgress && activeStep && (
+          <ActionButton variant="quiet"
+            label={shortSession ? t(`Dùng phiên ${pomodoroMinutes} phút`, `Use a ${pomodoroMinutes}-minute session`) : t(`Dùng ${activeStep.estimatedMinutes} phút cho bước này`, `Use ${activeStep.estimatedMinutes} min for this step`)}
+            onPress={() => focus.selectMode(shortSession ? 'pomodoro' : 'step')} />
+        )}
 
-          <TouchableOpacity
-            style={styles.exitSecondaryBtn}
-            onPress={onExitFocus}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.exitSecondaryBtnText}>
-              Tạm dừng và quay lại bảng
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      {/* Pomodoro Complete Encouraging Modal */}
-      <Modal
-        visible={showPomodoroDoneModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowPomodoroDoneModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalIcon}>🎉</Text>
-            <Text style={styles.modalTitle}>25 Phút Tập Trung Sâu Thành Công!</Text>
-            <Text style={styles.modalMessage}>
-              Tuyệt vời! Bạn vừa hoàn thành một phiên 25 phút Pomodoro trọn vẹn cho "{doingTask.title}".
-              Dopamine dâng trào, hãy duỗi người và uống một ngụm nước nhé! 🌿
-            </Text>
-
-            <View style={styles.modalBtnGroup}>
-              <TouchableOpacity
-                style={styles.modalDoneBtn}
-                onPress={() => {
-                  setShowPomodoroDoneModal(false);
-                  onCompleteTask(doingTask.id);
-                  onExitFocus();
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalDoneBtnText}>Đánh dấu Xong (DONE) ✓</Text>
+        {steps.length > 0 && (
+          <View style={styles.checklist}>
+            <Text style={styles.section}>{t('Các bước nhỏ')}</Text>
+            {steps.map((step) => (
+              <TouchableOpacity key={step.id} style={[styles.step, step.id === activeStep?.id && styles.activeStep]}
+                onPress={() => void saveAction(step)} disabled={isSubmitting} accessibilityRole="checkbox"
+                accessibilityState={{ checked: step.isCompleted, disabled: isSubmitting }}>
+                <Text style={[styles.check, step.isCompleted && styles.checked]}>{step.isCompleted ? '✓' : ''}</Text>
+                <Text style={styles.stepText}>{step.title}</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalRestBtn}
-                onPress={() => setShowPomodoroDoneModal(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.modalRestBtnText}>Nghỉ ngơi và làm tiếp sau</Text>
-              </TouchableOpacity>
-            </View>
+            ))}
           </View>
-        </View>
-      </Modal>
+        )}
+
+        {activeStep && (
+          <ActionButton variant="quiet" label={t('Hoàn thành việc')} onPress={() => void saveAction()} disabled={isSubmitting} />
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F172A',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
-  },
-  exitButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: '#334155',
-    minHeight: 44, // WCAG Touch target >= 44x44 pt
-    justifyContent: 'center',
-  },
-  exitButtonText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  focusModePill: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#38BDF8',
-  },
-  focusModePillText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  scrollArea: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  spotlightCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#38BDF8',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 3,
-    marginBottom: 16,
-  },
-  taskMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  doingIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  pulseDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#38BDF8',
-  },
-  doingIndicatorText: {
-    color: '#38BDF8',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  energyBadge: {
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  energyBadgeText: {
-    color: '#CBD5E1',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  taskTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#F8FAFC',
-    lineHeight: 24,
-  },
-  taskDesc: {
-    fontSize: 13,
-    color: '#94A3B8',
-    marginTop: 6,
-    lineHeight: 18,
-  },
-  timerSection: {
-    marginVertical: 10,
-  },
-  checklistCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#334155',
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  checklistHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  checklistTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#F8FAFC',
-  },
-  stepCounterText: {
-    fontSize: 12,
-    color: '#38BDF8',
-    fontWeight: '700',
-  },
-  noSubtasksBox: {
-    paddingVertical: 10,
-  },
-  noSubtasksText: {
-    fontSize: 12,
-    color: '#94A3B8',
-    lineHeight: 18,
-  },
-  subtasksList: {
-    gap: 10,
-  },
-  subtaskItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#334155',
-    minHeight: 48,
-  },
-  subtaskItemCompleted: {
-    backgroundColor: 'rgba(5, 150, 105, 0.1)',
-    borderColor: 'rgba(5, 150, 105, 0.3)',
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#64748B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  checkboxChecked: {
-    backgroundColor: '#059669',
-    borderColor: '#059669',
-  },
-  checkmarkIcon: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  subtaskTextWrapper: {
-    flex: 1,
-  },
-  subtaskTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#F8FAFC',
-    lineHeight: 18,
-  },
-  subtaskTitleCompleted: {
-    color: '#94A3B8',
-    textDecorationLine: 'line-through',
-  },
-  subtaskMeta: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  bottomActionWrapper: {
-    gap: 10,
-  },
-  completeTaskBtn: {
-    backgroundColor: '#059669',
-    borderRadius: 14,
-    minHeight: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  completeTaskBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  completeTaskBtnDisabled: {
-    opacity: 0.5,
-  },
-  exitSecondaryBtn: {
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  exitSecondaryBtnText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 30,
-  },
-  emptyIcon: {
-    fontSize: 56,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#F8FAFC',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#94A3B8',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  returnBtn: {
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  returnBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.82)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 380,
-    backgroundColor: '#1E293B',
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#334155',
-    alignItems: 'center',
-  },
-  modalIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#F8FAFC',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  modalMessage: {
-    fontSize: 13,
-    color: '#94A3B8',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-  },
-  modalBtnGroup: {
-    width: '100%',
-    gap: 10,
-  },
-  modalDoneBtn: {
-    backgroundColor: '#059669',
-    minHeight: 48, // WCAG Touch target >= 44x44 pt
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalDoneBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  modalRestBtn: {
-    backgroundColor: '#334155',
-    minHeight: 48, // WCAG Touch target >= 44x44 pt
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalRestBtnText: {
-    color: '#CBD5E1',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  soundscapeWidget: {
-    minHeight: 52,
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#334155',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  soundscapeWidgetActive: {
-    borderColor: '#38BDF8',
-    backgroundColor: '#0F2642',
-  },
-  soundscapeWidgetIcon: {
-    fontSize: 22,
-    marginRight: 12,
-  },
-  soundscapeWidgetInfo: {
-    flex: 1,
-  },
-  soundscapeWidgetTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#F8FAFC',
-  },
-  soundscapeWidgetDesc: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  soundscapeStatusBadge: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    marginLeft: 8,
-  },
-  soundscapeStatusBadgeActive: {
-    backgroundColor: '#0284C7',
-  },
-  soundscapeStatusText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: colors.canvas },
+  empty: { flex: 1, justifyContent: 'center', padding: 24, gap: 16 },
+  header: { flexDirection: 'row', minHeight: 48, alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 16 },
+  headerName: { color: colors.muted, fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  back: { minHeight: 44, minWidth: 44, justifyContent: 'center', paddingVertical: 8, flexShrink: 1 },
+  backLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  content: { paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8, gap: 8 },
+  card: { borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 16, gap: 8 },
+  checklist: { padding: 8, gap: 8 },
+  label: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  success: { color: colors.success },
+  title: { color: colors.text, fontSize: 26, lineHeight: 32, fontWeight: '800', letterSpacing: -0.5 },
+  section: { color: colors.text, fontSize: 16, fontWeight: '700', paddingHorizontal: 8 },
+  notice: { color: colors.muted, fontSize: 14, textAlign: 'center' },
+  step: { minHeight: 44, flexDirection: 'row', alignItems: 'center', borderRadius: 10, padding: 8, gap: 12 },
+  activeStep: { backgroundColor: colors.surface },
+  stepText: { flex: 1, color: colors.text, fontSize: 15 },
+  check: { width: 22, height: 22, color: colors.accentInk, borderColor: colors.muted, borderWidth: 1, borderRadius: 6, textAlign: 'center', fontWeight: '700' },
+  checked: { backgroundColor: colors.success, borderColor: colors.success },
 });

@@ -29,18 +29,16 @@ public class TaskController {
     private final com.orbit.service.SubtaskService subtaskService;
 
     /**
-     * Yêu cầu AI Gemini 1.5 Flash bẻ nhỏ việc thành 3-5 vi bước (<20m) hoặc kích hoạt Heuristic Fallback (Edge Case 01).
+     * Gợi ý 3–5 bước từ Gemini hoặc gợi ý nhanh khi không kết nối được.
      */
     @PostMapping("/{id}/ai-decompose")
     public ResponseEntity<ApiResponse<com.orbit.dto.response.AIDecomposeResponse>> decomposeTaskWithAI(
-        @PathVariable UUID id
+        @PathVariable UUID id,
+        @RequestParam(defaultValue = "vi") String language
     ) {
         log.info("REST request to decompose task ID {} using AI", id);
-        com.orbit.dto.response.AIDecomposeResponse response = aiService.decomposeTask(id);
-        String message = Boolean.TRUE.equals(response.isFallback())
-            ? "Orbit đã kích hoạt Heuristic Fallback chuẩn bị sẵn 3 bước mồi khởi động vừa sức giúp bạn!"
-            : "AI đã phân rã nhiệm vụ thành công thành các vi bước vừa sức!";
-        return ResponseEntity.ok(ApiResponse.ok(response, message));
+        var response = aiService.decomposeTask(id, "en".equalsIgnoreCase(language));
+        return ResponseEntity.ok(ApiResponse.ok(response, response.reasoningSummary()));
     }
 
     /**
@@ -90,7 +88,6 @@ public class TaskController {
      */
     @PostMapping
     public ResponseEntity<ApiResponse<TaskResponse>> createTask(@Valid @RequestBody CreateTaskRequest request) {
-        log.info("REST request to create task: '{}'", request.title());
         TaskResponse response = taskService.createTask(request);
         String message = (request.title().trim().length() > 100)
             ? "Orbit đã giúp bạn tóm gọn tiêu đề và lưu phần chi tiết còn lại vào mục ghi chú rồi nhé! 🌿"

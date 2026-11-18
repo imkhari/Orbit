@@ -6,6 +6,7 @@ import com.orbit.dto.request.RegisterRequest;
 import com.orbit.dto.response.AuthResponse;
 import com.orbit.dto.response.UserResponse;
 import com.orbit.entity.User;
+import com.orbit.exception.RegistrationException;
 import com.orbit.exception.ResourceNotFoundException;
 import com.orbit.repository.UserRepository;
 import com.orbit.security.JwtTokenProvider;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -33,11 +35,14 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public AuthResponse register(RegisterRequest request) {
+    public UserResponse register(RegisterRequest request) {
         String email = request.email().trim().toLowerCase();
+        if ("demo@orbit.app".equals(email)) {
+            throw new RegistrationException("Địa chỉ này dành cho chế độ thử trên máy.");
+        }
 
         if (userRepository.existsByEmail(email)) {
-            throw new IllegalArgumentException("Email này đã được đăng ký. Bạn có muốn đăng nhập không? 🌿");
+            throw new RegistrationException("Email này đã có tài khoản. Bạn có thể đăng nhập bằng email này.");
         }
 
         log.info("Registering new user with email: {}", email);
@@ -60,15 +65,7 @@ public class AuthServiceImpl implements AuthService {
             log.warn("Could not pre-initialize streak for user ID {}: {}", savedUser.getId(), e.getMessage());
         }
 
-        String accessToken = tokenProvider.generateAccessToken(savedUser);
-        String refreshToken = tokenProvider.generateRefreshToken(savedUser);
-
-        return AuthResponse.of(
-            accessToken,
-            refreshToken,
-            tokenProvider.getAccessTokenExpirationSeconds(),
-            UserResponse.fromEntity(savedUser)
-        );
+        return UserResponse.fromEntity(savedUser);
     }
 
     @Override
@@ -77,10 +74,10 @@ public class AuthServiceImpl implements AuthService {
         log.info("Attempting login for email: {}", email);
 
         User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new IllegalArgumentException("Email hoặc mật khẩu chưa chính xác. Hãy thử lại nhé 🌿"));
+            .orElseThrow(() -> new BadCredentialsException("Email hoặc mật khẩu chưa chính xác."));
 
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new IllegalArgumentException("Email hoặc mật khẩu chưa chính xác. Hãy thử lại nhé 🌿");
+            throw new BadCredentialsException("Email hoặc mật khẩu chưa chính xác.");
         }
 
         String accessToken = tokenProvider.generateAccessToken(user);
@@ -96,15 +93,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse refreshToken(RefreshTokenRequest request) {
-        String token = request.refreshToken();
-
-        if (!tokenProvider.validateToken(token)) {
-            throw new IllegalArgumentException("Phiên đăng nhập đã hết hạn. Bạn vui lòng đăng nhập lại nhé 🌿");
-        }
-
-        UUID userId = tokenProvider.getUserIdFromToken(token);
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new ResourceNotFoundException("Người dùng", userId));
+        User user = tokenProvider.refreshSubject(request.refreshToken())
+            .flatMap(userRepository::findById)
+            .orElseThrow(() -> new BadCredentialsException("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại."));
 
         String newAccessToken = tokenProvider.generateAccessToken(user);
         String newRefreshToken = tokenProvider.generateRefreshToken(user);

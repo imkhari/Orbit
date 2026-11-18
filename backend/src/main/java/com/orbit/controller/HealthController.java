@@ -19,7 +19,7 @@ public class HealthController {
                 "service", "Orbit Backend API",
                 "version", "1.0.0",
                 "timestamp", Instant.now().toString(),
-                "ai_engine", "Ready (Gemini 1.5 Flash)"
+                "ai_engine", "Task decomposition with local fallback"
         ));
     }
 }
